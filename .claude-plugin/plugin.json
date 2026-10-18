@@ -1,0 +1,14 @@
+{
+  "name": "technical-artist",
+  "version": "0.1.0",
+  "description": "Technical artist: creates original 3D models, materials, textures and shaders, preferably by script, and runs the asset pipeline into the engine.",
+  "author": {
+    "name": "opsroller"
+  },
+  "repository": "https://github.com/opsroller/technical-artist",
+  "license": "MIT",
+  "keywords": [
+    "role",
+    "job-function"
+  ]
+}
