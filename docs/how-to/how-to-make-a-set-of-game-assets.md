@@ -24,12 +24,16 @@ This guide shows you how to produce a family of assets with the
    ```
 
 4. **Read the result.**
-   - `status: "done"`: assets, manifest, provenance and docs are in place.
+   - `status: "done"`: assets, manifest, provenance and docs are committed and
+     pushed on the branch in `handoff.branch`.
    - `status: "blocked"`: read `open`; each item names the asset and the
      problem. Fix or re-brief those assets and run again for just them.
    - `done-docs-unverified`: assets are done; review the docs pages by hand.
-5. **Open a PR** with the measured numbers from `results` in the description
-   (see `engineering-practices`).
+5. **Ship it.** For a work package, pass the whole result as `prior`:
+   `/engineering-practices:deliver-package { wp: "WP-NN", prior: <the result> }`.
+   Otherwise land the branch with
+   `/engineering-practices:land-pr { branch: "<handoff.branch>" }`. Put the
+   measured numbers from `results` in the PR description.
 
 If you want variants of one idea, give them the same base name (`SM_Crate_01`,
 `SM_Crate_02`); the plan step will usually choose one shared generator.

@@ -32,14 +32,24 @@ asset-batch  args: { family: "dockside props", assets: [{ name: "SM_Crate_01", b
 | Make | One agent per asset. Writes only its own output directory; returns manifest lines and a provenance record. Never edits shared files. |
 | Check | An `apply` step writes all manifest and provenance lines in one edit each; then a read-only family and per-asset review against budgets and the asset checklist (including those entries); up to 3 review rounds with a single fix agent between them. Unchecked assets stay "unverified". |
 | Docs | Do: write the planned Diataxis pages. Check: one kind per page, title patterns, links. |
+| Handoff | Commits the assets, shared manifest and provenance log and docs on a feature branch, pushes, runs the validator and tests on the pushed head. Never opens or merges a PR. |
 
 ## Outputs (`status`)
 
 | Status | Meaning |
 |---|---|
-| `done` | Assets, manifest, provenance and docs complete. Returns `results`, `docs`. |
-| `blocked` | Returns `stage` and `open` (or `blockers`) items; nothing should merge. |
+| `done` | Assets, manifest, provenance and docs complete and pushed. Returns `results`, `docs` (`pages`, `undocumented`), `handoff` and `next`. |
+| `blocked` | Returns `stage` (`check`, `docs` or `handoff`) and `open` (or `blockers`) items; nothing should merge. |
 | `done-docs-unverified` | Assets done; docs check returned nothing. |
+
+## Handoff
+
+`handoff` is the object engineering-practices
+[deliver-package](https://github.com/opsroller/engineering-practices/blob/main/docs/reference/workflow-deliver-package.md)
+takes as `prior`, so pass the whole result and the batch ships without
+being built again: `from` (`technical-artist:asset-batch`), `branch`,
+`pr`, `head_sha`, `tests_pass`, `docs`, `undocumented`, `notes`. With no
+work package, land the branch with land-pr instead; `next` names both.
 
 ## Run modes
 
@@ -49,6 +59,6 @@ Run modes v2. Besides its own args, the workflow takes the optional `run` arg de
 and `run.from` with `run.results` resumes a stopped run. Without `run`, the workflow and its outputs are as above.
 See [how to run a workflow inline](https://github.com/opsroller/engineering-practices/blob/main/docs/how-to/how-to-run-a-workflow-inline.md).
 
-Step labels, for `run.only` and `run.results`: `plan`, `make:<asset>` (one per asset), `apply`, `check:<round>`, `fix:<round>`, `docs:do`, `docs:check`, `docs:fix` and `docs:recheck` (only when the docs check finds problems).
+Step labels, for `run.only` and `run.results`: `plan`, `make:<asset>` (one per asset), `apply`, `check:<round>`, `fix:<round>`, `docs:do`, `docs:check`, `docs:fix` and `docs:recheck` (only when the docs check finds problems), `handoff`.
 
 Independent steps: `check:<round>`, `docs:check`, `docs:recheck`; each is read-only. They review work this run produced, so in inline mode send each to a reviewer with no part in the work and name them in `run.reviewers`; a step you answer yourself is reported in `self_reviewed`.
