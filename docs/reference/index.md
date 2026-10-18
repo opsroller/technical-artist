@@ -2,7 +2,7 @@
 
 *Reference landing page, for users of the technical-artist plugin who need exact facts about its parts.*
 
-The plugin has one agent, eight skills and three workflows. Each page below
+The plugin has one agent, eight skills and four workflows. Each page below
 uses the same layout so you can find fields in the same place.
 
 ## The agent
@@ -31,6 +31,7 @@ uses the same layout so you can find fields in the same place.
 - [asset-batch](workflow-asset-batch.md): make and document a set of assets.
 - [art-performance-audit](workflow-art-performance-audit.md): find and cut art cost in a scene.
 - [artist-tool](workflow-artist-tool.md): turn a pain point into a tested, documented tool.
+- [visual-target](workflow-visual-target.md): set the visual target, quality tiers and readability criteria before production.
 
 ## Plugin manifest
 
@@ -39,7 +40,7 @@ uses the same layout so you can find fields in the same place.
 | Field | Value |
 |---|---|
 | `name` | `technical-artist` |
-| `version` | `0.2.0` |
+| `version` | `0.3.0` |
 | `description` | One-sentence role summary |
 | `author.name` | `opsroller` |
 | `repository` | `https://github.com/opsroller/technical-artist` |

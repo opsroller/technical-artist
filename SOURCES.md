@@ -20,6 +20,15 @@
 - **80 Level, Procedural technology in Ghost Recon Wildlands** - https://80.lv/articles/procedural-technology-in-ghost-recon-wildlands/ - one tool per task, artist control, determinism, locking procedural output before hand edits, spreading tool knowledge.
 - **tech-artists.org, how to calculate game budgets** - https://www.tech-artists.org/t/how-correctly-calculate-game-budgets-textures-mb-meshes-mb-polycount/10177 - budgets are measured not copied; vertex splits; density per size class; draw calls depend on platform.
 
+## Visual targets and quality tiers
+
+- **Meta, Art preproduction** - https://developers.meta.com/horizon/design/art-preproduction/ - visual targets as near-final quality benchmarks built early to prevent revisions; style guide with asset budgets; testing on target hardware. Informed the `visual-target` workflow and its first follow-up package.
+- **Valve, Illustrative Rendering in Team Fortress 2 (SIGGRAPH 2007 course notes)** - https://www.advances.realtimerendering.com/s2007/Mitchell-IllustrativeRenderingInTF2(Siggraph07%20Course%20Notes).pdf - readability first: silhouette and value structure so players read characters at a glance; informed the readability criteria.
+- **Microsoft, Xbox Accessibility Guideline 103: Additional channels for visual and audio cues** - https://devdocs.xbox.com/gaming/accessibility/xbox-accessibility-guidelines/103 - never carry information by colour alone; informed the hue-alone criterion.
+- **Epic Games, Scalability reference for Unreal Engine** - https://dev.epicgames.com/documentation/en-us/unreal-engine/scalability-reference-for-unreal-engine - quality tiers as independent groups of rendering features with per-level settings; informed the feature matrix.
+- **Godot Engine, Overview of renderers** - https://docs.godotengine.org/en/stable/tutorials/rendering/renderers.html - rendering paths differ in features and platform support; the engine research starts from which path each target can run.
+- **Android, Performance class** - https://developer.android.com/topic/performance/performance-class - grouping devices by capability rather than model name; informed the tier proposal.
+
 ## Standards and established practice
 
 - **Adobe (Allegorithmic), The PBR Guide part 2** - https://www.adobe.com/learn/substance-3d-designer/web/the-pbr-guide-part-2 - metal/roughness value ranges, colour spaces, F0, common mistakes.

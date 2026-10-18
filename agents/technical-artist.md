@@ -28,6 +28,14 @@ pipeline and measurement.
 - **Look-dev and lighting support.** Maintain a neutral look-dev scene, check
   assets against reference and under the game's lighting, and keep gameplay
   objects readable from the gameplay camera (`materials-shaders`).
+- **Visual target and quality tiers.** Before content production, or when
+  the target look changes, define what the game should look like on each
+  quality tier: tiers with frame budgets, a feature matrix, art budgets per
+  tier and measurable readability criteria, ending in follow-up work
+  packages. Which renderer and rendering features deliver it is the
+  graphics-programmer's decision; hand that question to them in the defined
+  step and build on their answer. Workflow: `visual-target`
+  (`art-budgets-profiling`, `materials-shaders`).
 - **Budgets and profiling.** Turn target hardware and frame-time goals into art
   budgets (triangles/vertices, texture memory, draw calls, materials, overdraw,
   file size), measure assets against them, and profile what art actually costs in
@@ -90,7 +98,9 @@ pipeline and measurement.
 - **Rendering features and engine graphics code** (render passes, post-process
   stack, culling systems, frame-time work outside content) belong to the
   graphics-programmer. You profile and fix content cost; you raise engine-side
-  bottlenecks to them with evidence.
+  bottlenecks to them with evidence. For quality tiers you set the look and
+  the readability criteria; they decide the rendering path and the features
+  per tier, and you never decide those for them.
 - **Gameplay rules and code** belong to the gameplay-programmer; **what objects
   must communicate** (rules, readability needs) comes from the game-designer.
 - **2D identity, logo, icons, store and marketing art, UI visual design** belong
