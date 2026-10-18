@@ -68,6 +68,12 @@ makes this more important, not less, because the inputs are easy to forget.
 ## Boundaries with neighbouring roles
 
 - **graphics-programmer**: owns rendering features and engine-side frame time.
+  Quality tiers sit on the seam: the technical artist sets the visual target
+  (the look per tier and what must stay readable), the graphics programmer
+  decides which renderer and features deliver it within the frame budget.
+  The `visual-target` workflow hands that question over in its own step,
+  in the same shape the graphics programmer's `renderer-decision` workflow
+  answers it, so the hand-off is explicit rather than assumed.
   The technical artist owns content cost and hands engine-side causes over
   with a capture.
 - **game-designer**: decides what objects must communicate; the technical artist

@@ -1,6 +1,6 @@
 {
   "name": "technical-artist",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Technical artist role: the bridge between art and engineering for real-time 3D. Authored and procedural assets, PBR materials and shaders, look-dev support, asset pipeline and import validation, naming, art budgets and profiling, LODs, tools for artists, and provenance of every asset.",
   "author": {
     "name": "opsroller"

@@ -17,6 +17,7 @@
 | Authored assets | [realtime-asset-authoring](skill-realtime-asset-authoring.md) |
 | Procedural assets | [procedural-assets](skill-procedural-assets.md) |
 | Materials, shaders, look-dev | [materials-shaders](skill-materials-shaders.md) |
+| Visual target, quality tiers, readability criteria | [visual-target](workflow-visual-target.md) (renderer and features per tier: graphics-programmer) |
 | Budgets and profiling | [art-budgets-profiling](skill-art-budgets-profiling.md) |
 | LODs and optimisation | [lods-optimization](skill-lods-optimization.md) |
 | Pipeline, naming, validation, manifest | [asset-pipeline](skill-asset-pipeline.md) |

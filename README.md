@@ -3,7 +3,7 @@
 *Landing page, for anyone who wants to know what this role plugin does and where to start.*
 
 The technical artist is the bridge between art and engineering for in-game 3D.
-This Claude Code plugin gives you that role as an agent, eight skills and three
+This Claude Code plugin gives you that role as an agent, eight skills and four
 workflows: it makes authored and procedural assets, PBR materials and shaders,
 supports look-dev, owns the asset pipeline (naming, import, validation,
 manifest), sets and measures art budgets (triangles, texture memory, draw calls),
@@ -30,6 +30,7 @@ It builds on the `engineering-practices` plugin, so install both.
   [cut art cost in a slow scene](docs/how-to/how-to-cut-art-cost-in-a-slow-scene.md),
   [automate a repetitive art task](docs/how-to/how-to-automate-a-repetitive-art-task.md),
   [set art budgets](docs/how-to/how-to-set-art-budgets.md),
+  [define a visual target and quality tiers](docs/how-to/how-to-define-a-visual-target-and-quality-tiers.md),
   [bring in a third-party asset](docs/how-to/how-to-bring-in-a-third-party-asset.md).
 - **Look something up.** The [reference index](docs/reference/index.md) covers
   the agent, every skill and workflow (args, phases, outputs) and the plugin
