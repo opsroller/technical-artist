@@ -182,7 +182,8 @@ const handoff = given
     'Never decide the renderer or the feature set yourself.'
 const decision = await agent(
   `You are the technical-artist on the visual target for "${scope}". Research:\n${JSON.stringify(research, null, 2)}\n` + handoff,
-  { schema: DECISION, phase: 'Renderer', label: 'renderer' },
+  // A given decision uses its own label, so a stored pending answer is not reused.
+  { schema: DECISION, phase: 'Renderer', label: given ? 'renderer:given' : 'renderer' },
 )
 if (!decision) return { status: 'blocked', stage: 'renderer', open: ['the renderer hand-off returned nothing'], research }
 if (decision.status === 'pending') {
@@ -190,7 +191,7 @@ if (decision.status === 'pending') {
     status: 'waiting-on-graphics-programmer',
     question,
     openQuestions: decision.openQuestions || [],
-    resume: 'When the graphics-programmer has decided, run this workflow again with the same args plus renderer: <the decision or the docs page that holds it>. To reuse the plan and research, also pass run.results from this run with its "renderer" key deleted, or the stored pending answer is reused.',
+    resume: 'When the graphics-programmer has decided, run this workflow again with the same args plus renderer: <the decision or the docs page that holds it>. Pass run.results from this run as well to reuse the plan and research.',
   }
 }
 
@@ -337,6 +338,7 @@ return {
   packages: packages.packages,
   packagesWhere: packages.where,
   unresearched,
+  next: 'Docs and any plan rows are in the working tree, not committed. Ship them with /engineering-practices:deliver-package or /engineering-practices:small-change.',
   docProblems: docCheck ? (docCheck.problems || []) : ['docs check returned nothing'],
 }
 })(RUN.agent, RUN.phase, RUN.log)]); return RUN.finish(RUN_OUT)

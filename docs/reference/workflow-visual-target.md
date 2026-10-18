@@ -57,11 +57,13 @@ straight back as the `renderer` arg.
 
 | Status | Meaning |
 |---|---|
-| `done` | Returns `tiers`, `matrix`, `artBudgets`, `criteria`, `renderer`, `packages`, `packagesWhere`, `unresearched` (empty), `docProblems` (empty). |
-| `waiting-on-graphics-programmer` | Returns `question`, `openQuestions` and `resume`: run again with `renderer` set to their decision. |
+| `done` | Returns `tiers`, `matrix`, `artBudgets`, `criteria`, `renderer`, `packages`, `packagesWhere`, `unresearched` (empty), `docProblems` (empty), and `next`. |
+| `waiting-on-graphics-programmer` | Returns `question`, `openQuestions` and `resume`: run again with `renderer` set to their decision; `run.results` from this run may be passed too. |
 | `blocked` | Plan blockers, a step returned nothing, review problems after one revision (`open`), or doc problems. |
 | `unverified` | Done, but a research area returned nothing (`unresearched`), or the review returned nothing. |
 | `done-docs-unverified` | Docs check returned nothing. |
+
+The workflow writes docs and plan rows to the working tree but does not commit, push or open a PR. The final result carries `next`, saying to ship them with `/engineering-practices:deliver-package` or `/engineering-practices:small-change`.
 
 ## Run modes
 
@@ -71,6 +73,4 @@ Run modes v1. Besides its own args, the workflow takes the optional `run` arg de
 and `run.from` with `run.results` resumes a stopped run. Without `run`, the workflow and its outputs are as above.
 See [how to run a workflow inline](https://github.com/opsroller/engineering-practices/blob/main/docs/how-to/how-to-run-a-workflow-inline.md).
 
-When resuming after `waiting-on-graphics-programmer` with `run.results`, delete the `renderer` key first, or the stored pending answer is reused.
-
-Step labels, for `run.only` and `run.results`: `plan`, `research:<area>` (`research:engine`, `research:hardware`, `research:look`), `renderer`, `tiers`, `readability`, `review:1`, `revise:1`, `review:2`, `packages`, `docs:do`, `docs:check`.
+Step labels, for `run.only` and `run.results`: `plan`, `research:<area>` (`research:engine`, `research:hardware`, `research:look`), `renderer` (`renderer:given` when the `renderer` arg is passed, so a stored pending answer is not reused), `tiers`, `readability`, `review:1`, `revise:1`, `review:2`, `packages`, `docs:do`, `docs:check`.
