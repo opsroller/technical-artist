@@ -3,7 +3,7 @@
 *Landing page, for anyone who wants to know what this role plugin does and where to start.*
 
 The technical artist is the bridge between art and engineering for in-game 3D.
-This Claude Code plugin gives you that role as an agent, ten skills and seven
+This Claude Code plugin gives you that role as an agent, ten skills and six
 workflows: it makes authored and procedural assets, PBR materials and shaders,
 supports look-dev with headless
 before/after captures, turns readability criteria into calibrated checks, owns the asset pipeline (naming, import, validation,

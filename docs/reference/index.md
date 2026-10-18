@@ -2,7 +2,7 @@
 
 *Reference landing page, for users of the technical-artist plugin who need exact facts about its parts.*
 
-The plugin has one agent, ten skills and seven workflows. Each page below
+The plugin has one agent, ten skills and six workflows. Each page below
 uses the same layout so you can find fields in the same place.
 
 ## The agent
