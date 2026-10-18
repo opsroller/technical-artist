@@ -42,8 +42,9 @@ with the `author-shader` workflow.
 ## Confirm targets only CI can compile
 
 When the result is `pending_ci`, CI must prove those targets before the
-PR merges. Once the CI jobs named in `pending_ci` have finished on the
-PR head, run the workflow again with that list:
+PR merges. It returns no `handoff` yet. Once the CI jobs named in
+`pending_ci` have finished on the PR head, run the command in `next`. It
+carries the list and what the handoff needs (`wp`, `docs`, `notes`):
 
 ```
 author-shader  args: {
@@ -53,8 +54,9 @@ author-shader  args: {
 }
 ```
 
-It reads each job's latest run. All passed: `status: "done"` and `next`
-lands the PR. A target failed: it fixes the shader from the CI log, pushes,
+It reads each job's latest run. All passed: `status: "done"` with a
+`handoff` for that head, and `next` names deliver-package (with `wp`) or
+land-pr. A target failed: it fixes the shader from the CI log, pushes,
 and returns `pending_ci` again, because the new head needs a new CI run.
 A job that has not run on the head yet: `pending_ci` again; run it once
 CI finishes.

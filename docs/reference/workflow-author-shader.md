@@ -21,6 +21,8 @@
 | `branch` | string | no | Existing branch to work on. |
 | `pr` | string | no | Existing PR to work on (its head branch). |
 | `ci_pending` | string[] | no | Resume after CI: the `pending_ci` list from an earlier result (`"<target>: pending-ci <CI job>"`). Needs `pr` or `branch`; `brief` is then optional. Runs only the CI phase. |
+| `wp` with `ci_pending` | string | no | Carried from the first run's `next`: the resume's `done` then names deliver-package. |
+| `docs`, `undocumented`, `notes`, `non_original` | string[] | no | Resume only, carried from the first run's `next`; they go into the resume's `handoff`. Without `docs`, `ci:read` takes the pages the PR body lists. |
 
 Missing required args (`shader`, and `brief` unless `ci_pending` is given; `pr` or `branch` with `ci_pending`) return a usage string.
 
@@ -57,10 +59,10 @@ Missing required args (`shader`, and `brief` unless `ci_pending` is given; `pr` 
 | Status | Meaning |
 |---|---|
 | `done` | From a full run, returns `shader`, `measured`, `variants`, `ambiguous`, `findingsFixed`, `before`, `after`, `docs`, `undocumented`, `caveats`, `notes`, `handoff` and `next`. |
-| `pending_ci` | As `done`, plus `pending_ci`: targets only CI proves. `handoff.notes` says to confirm them before merge; `next` is the `ci_pending` re-run. From the CI phase: `pending_ci` still to prove (not run yet, or fixed and needing a new run), `confirmed`, `fixed`, `head_sha`, `next`. |
+| `pending_ci` | As `done`, plus `pending_ci` (targets only CI proves), but with **no `handoff`**: nothing ships until CI confirms them. `next` is the `ci_pending` resume, with `pr` or `branch`, `wp`, `docs`, `undocumented`, `notes` and `non_original` carried in its args. From the CI phase: `pending_ci` still to prove (not run yet, or fixed and needing a new run on the new head), `confirmed`, `fixed`, `head_sha`, `notes`, `next` (the resume again), and no `handoff`. |
 | `unverified` | As `done`, but a review (`unverifiedReviews`) or the docs check returned nothing. |
 | `blocked` | Returns `stage` and `open` (`stage: "ci"` when a CI fix failed or CI could not be read). |
-| `done` (CI phase) | Every pending target passed: `confirmed`, `head_sha`, `next` (land-pr). |
+| `done` (CI phase) | Every pending target passed on the head `ci:read` read: `confirmed`, `head_sha`, `notes`, a fresh `handoff` for that head, and `next` (deliver-package with `prior` when `wp` is carried, else land-pr). |
 | Usage string | `shader` or `brief` missing. |
 
 ## Handoff
@@ -69,6 +71,10 @@ Missing required args (`shader`, and `brief` unless `ci_pending` is given; `pr` 
 `from` (`technical-artist:author-shader`), `branch`, `pr`, `head_sha`,
 `tests_pass` (`true`), `docs`, `undocumented`, `non_original` and `notes`.
 `next` names deliver-package with `prior` when `wp` is given, else land-pr.
+A `pending_ci` result has no `handoff`. The CI phase's `done` builds one on
+the head it read (`ci:read`'s `head_sha`; after a `ci:fix` push the run
+returns `pending_ci` for the new head), from the carried `docs`,
+`undocumented`, `non_original` and `notes`, plus a "confirmed in CI" note.
 
 ## Run modes
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 export const meta = {
   name: 'author-shader',
-  description: 'Author or rework one shader (and the materials that use it) from an effect brief: write the effect down with its coverage, platforms, tiers, fallbacks, permutations and cost budget, capture look-dev frames before, build it on the project\'s shared material conventions, capture after, attack it in parallel independent read-only reviews (look, cost and permutations, platforms and fallbacks, artist parameters), fix, document it and push it as a handoff for engineering-practices deliver-package or land-pr. Targets only provable in CI (a platform-only toolchain, e.g. Metal from a Linux host) finish as pending_ci with the CI job named; re-run with ci_pending after CI to confirm or fix them. Builds on the materials-shaders and lookdev-capture skills. args: { shader: "<shader name>", brief: "<what it must look like and where it is used>", replaces?: "<existing shader or material, optional>", wp?: "<work package id>", branch?: "<existing branch>", pr?: "<existing PR>", ci_pending?: ["<target>: <CI job>", ...] }',
+  description: 'Author or rework one shader (and the materials that use it) from an effect brief: write the effect down with its coverage, platforms, tiers, fallbacks, permutations and cost budget, capture look-dev frames before, build it on the project\'s shared material conventions, capture after, attack it in parallel independent read-only reviews (look, cost and permutations, platforms and fallbacks, artist parameters), fix, document it and push it as a handoff for engineering-practices deliver-package or land-pr. Targets only provable in CI (a platform-only toolchain, e.g. Metal from a Linux host) finish as pending_ci with the CI job named; re-run with ci_pending after CI to confirm or fix them. Builds on the materials-shaders and lookdev-capture skills. args: { shader: "<shader name>", brief: "<what it must look like and where it is used>", replaces?: "<existing shader or material, optional>", wp?: "<work package id>", branch?: "<existing branch>", pr?: "<existing PR>", ci_pending?: ["<target>: <CI job>", ...], docs?: [...], undocumented?: [...], notes?: [...], non_original?: [...] (resume: carried from the pending_ci result) }',
   phases: [
     { title: 'Plan', detail: 'effect, coverage, platforms and tiers, fallbacks, permutations, parameters, cost budget, look-dev frames, doc kinds' },
     { title: 'Before', detail: 'capture the look-dev frames on the current state (lookdev-capture skill)' },
@@ -107,7 +107,7 @@ if (RUN.error) return RUN.error
 const RUN_OUT = await Promise.race([RUN.halted, (async (agent, phase, log) => {
 // --- run-modes v2 end (workflow body follows; close it with the tail line) ---
 
-const USAGE = 'usage: author-shader { shader: "<shader name, e.g. SH_Water>", brief: "<what it must look like, where it is used, what it must communicate>", replaces: "<existing shader or material, optional>", wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>", ci_pending: ["<target>: <CI job>", ...] (resume after CI, with pr or branch; brief optional) }'
+const USAGE = 'usage: author-shader { shader: "<shader name, e.g. SH_Water>", brief: "<what it must look like, where it is used, what it must communicate>", replaces: "<existing shader or material, optional>", wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>", ci_pending: ["<target>: <CI job>", ...] (resume after CI, with pr or branch; brief optional), docs, undocumented, notes, non_original: (resume, carried from the pending_ci result) }'
 const ciPending = Array.isArray(args && args.ci_pending) ? args.ci_pending.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim()) : []
 if (!args || !args.shader || (!args.brief && !ciPending.length)) return USAGE
 if (ciPending.length && !args.pr && !args.branch) return USAGE + ' (ci_pending needs pr or branch)'
@@ -176,20 +176,28 @@ const HANDOFF = { type: 'object', properties: { branch: { type: 'string' }, pr: 
 // is "pending CI", never "ok": the run finishes with it listed, and this
 // resume path turns it into pass or fail from the CI result.
 const PENDING_RE = /:\s*pending[- ]ci\b\s*(.*)$/i
-const CICHECK = { type: 'object', properties: { targets: { type: 'array', items: { type: 'object', properties: { target: { type: 'string' }, job: { type: 'string' }, result: { type: 'string', enum: ['pass', 'fail', 'not-run'] }, run: { type: 'string', description: 'CI run or job URL on the current head' }, log: { type: 'string', description: 'for fail: the compiler error lines from the log' } }, required: ['target', 'result'] } }, head_sha: { type: 'string' } }, required: ['targets'] }
-const CIFIX = { type: 'object', properties: { fixed: { type: 'array', items: { type: 'string' } }, failing: { type: 'array', items: { type: 'string' } }, head_sha: { type: 'string' }, notes: { type: 'array', items: { type: 'string' } } }, required: ['fixed', 'failing'] }
+const CICHECK = { type: 'object', properties: { branch: { type: 'string' }, pr: { type: 'string' }, docs: { type: 'array', items: { type: 'string' }, description: 'docs pages the PR body lists, when no docs were carried in args' }, targets: { type: 'array', items: { type: 'object', properties: { target: { type: 'string' }, job: { type: 'string' }, result: { type: 'string', enum: ['pass', 'fail', 'not-run'] }, run: { type: 'string', description: 'CI run or job URL on the current head' }, log: { type: 'string', description: 'for fail: the compiler error lines from the log' } }, required: ['target', 'result'] } }, head_sha: { type: 'string', description: 'the head commit the runs were read on' } }, required: ['targets', 'branch', 'head_sha'] }
+const CIFIX = { type: 'object', properties: { fixed: { type: 'array', items: { type: 'string' } }, failing: { type: 'array', items: { type: 'string' } }, head_sha: { type: 'string', description: 'the pushed head after the fix' }, notes: { type: 'array', items: { type: 'string' } } }, required: ['fixed', 'failing', 'head_sha'] }
+// Everything the resume needs is carried in its args, so a pending_ci
+// result is the only state between the two runs.
+const carried = (xs) => (Array.isArray(xs) ? xs.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim()) : [])
+const resumeArgs = (pending, extra) => ({ shader, pr: extra.pr || undefined, branch: extra.pr ? undefined : extra.branch, wp: wp || undefined, ci_pending: pending, docs: extra.docs, undocumented: extra.undocumented, notes: extra.notes, non_original: extra.non_original })
+const resumeNext = (pending, extra) => `after CI finishes on the head, confirm the pending targets: /technical-artist:author-shader ${JSON.stringify(resumeArgs(pending, extra))}`
 if (ciPending.length) {
   phase('CI')
   const ci = await agent(
-    `You are the technical-artist confirming the shader "${shader}" on targets only CI can compile. ${where} For each pending target below, find the named CI job's latest run on the current head of the branch (the forge's API or CLI; wait for no run, read what is there), and report pass, fail (with the compiler error lines from its log) or not-run (no finished run on this head), with the run URL. A job that passed without compiling this shader for the target (skipped, cached, wrong platform) is not-run. Pending targets:\n- ${ciPending.join('\n- ')}\nDo not edit, commit or push anything.`,
+    `You are the technical-artist confirming the shader "${shader}" on targets only CI can compile. ${where} For each pending target below, find the named CI job's latest run on the current head of the branch (the forge's API or CLI; wait for no run, read what is there), and report pass, fail (with the compiler error lines from its log) or not-run (no finished run on this head), with the run URL. A job that passed without compiling this shader for the target (skipped, cached, wrong platform) is not-run. Pending targets:\n- ${ciPending.join('\n- ')}\nReturn the branch, the PR URL, the head SHA you read the runs on` + (carried(args.docs).length ? '' : ', and the docs pages the PR body lists') + `. Do not edit, commit or push anything.`,
     { schema: CICHECK, phase: 'CI', label: 'ci:read' })
   if (!ci || !Array.isArray(ci.targets)) return { status: 'blocked', stage: 'ci', open: ['could not read the CI results for: ' + ciPending.join('; ')] }
   const by = (r) => ci.targets.filter((t) => t && t.result === r)
+  // Keep the job named in the args when the reader leaves it out.
+  const asPending = (t) => ciPending.find((p) => p.split(':')[0].trim() === t.target) || `${t.target}: pending-ci ${t.job || ''}`.trim()
   const passed = by('pass').map((t) => `${t.target}: pass ${t.run || ''}`.trim())
   const failed = by('fail')
   const listed = new Set(ci.targets.map((t) => t && t.target))
-  const notRun = by('not-run').map((t) => `${t.target}: pending-ci ${t.job || ''}`.trim())
+  const notRun = by('not-run').map(asPending)
     .concat(ciPending.filter((p) => !listed.has(p.split(':')[0].trim())))
+  const carry = { pr: args.pr || ci.pr || '', branch: ci.branch || args.branch || '', docs: carried(args.docs).length ? carried(args.docs) : strings(ci.docs), undocumented: carried(args.undocumented), notes: carried(args.notes), non_original: carried(args.non_original) }
   if (failed.length) {
     const cifix = await agent(
       `Fix the shader "${shader}" for the targets that failed in CI, in the shader and material files only, following the technical-artist materials-shaders skill. ${where}\n` +
@@ -199,11 +207,33 @@ if (ciPending.length) {
     if (!cifix) return { status: 'blocked', stage: 'ci', open: failed.map((t) => `${t.target}: fails in CI ${t.run || ''}`.trim()), confirmed: passed }
     if (strings(cifix.failing).length) return { status: 'blocked', stage: 'ci', open: strings(cifix.failing), confirmed: passed, notes: strings(cifix.notes) }
     // The fix is a new head, so every target CI proves must run again on it.
-    const again = failed.map((t) => `${t.target}: pending-ci ${t.job || ''}`.trim()).concat(notRun)
-    return { status: 'pending_ci', shader, pending_ci: again, confirmed: passed, fixed: strings(cifix.fixed), head_sha: cifix.head_sha || '', notes: strings(cifix.notes), next: `after CI finishes on the new head: /technical-artist:author-shader ${JSON.stringify({ shader, pr: args.pr || undefined, branch: args.pr ? undefined : args.branch, ci_pending: again })}` }
+    const again = failed.map(asPending).concat(notRun)
+    const fixNotes = carry.notes.concat(strings(cifix.notes).map((n) => 'ci fix: ' + n))
+    return { status: 'pending_ci', shader, pending_ci: again, confirmed: passed, fixed: strings(cifix.fixed), head_sha: cifix.head_sha, notes: fixNotes, next: resumeNext(again, Object.assign({}, carry, { notes: fixNotes })) }
   }
-  if (notRun.length) return { status: 'pending_ci', shader, pending_ci: notRun, confirmed: passed, head_sha: ci.head_sha || '', next: `after CI finishes on the head: /technical-artist:author-shader ${JSON.stringify({ shader, pr: args.pr || undefined, branch: args.pr ? undefined : args.branch, ci_pending: notRun })}` }
-  return { status: 'done', shader, confirmed: passed, head_sha: ci.head_sha || '', next: `land it: /engineering-practices:land-pr ${args.pr ? `{ pr: "${args.pr}" }` : `{ branch: "${args.branch}" }`}` }
+  if (notRun.length) return { status: 'pending_ci', shader, pending_ci: notRun, confirmed: passed, head_sha: ci.head_sha, notes: carry.notes, next: resumeNext(notRun, carry) }
+  // Every pending target passed on the head just read: hand that head off.
+  return {
+    status: 'done',
+    shader,
+    confirmed: passed,
+    head_sha: ci.head_sha,
+    notes: carry.notes,
+    handoff: {
+      from: 'technical-artist:author-shader',
+      branch: carry.branch,
+      pr: carry.pr,
+      head_sha: ci.head_sha,
+      tests_pass: true,
+      docs: carry.docs,
+      undocumented: carry.undocumented,
+      non_original: carry.non_original,
+      notes: carry.notes.concat(['confirmed in CI: ' + passed.join('; ')]),
+    },
+    next: wp
+      ? `ship it without rebuilding: /engineering-practices:deliver-package { wp: "${wp}", prior: <this result> }; after the code reviewer passes, /engineering-practices:land-pr { pr: "${carry.pr || '<the PR>'}" }`
+      : `land it (it marks the PR ready, asks the code reviewer, polls CI and squash-merges once passed): /engineering-practices:land-pr ${carry.pr ? `{ pr: "${carry.pr}" }` : `{ branch: "${carry.branch}" }`}`,
+  }
 }
 
 phase('Plan')
@@ -340,7 +370,7 @@ return {
   undocumented: docs.undocumented,
   caveats,
   notes,
-  handoff: {
+  ...(pendingCi.length ? {} : { handoff: {
     from: 'technical-artist:author-shader',
     branch: handoff.branch,
     pr: handoff.pr || '',
@@ -349,10 +379,12 @@ return {
     docs: docs.pages || [],
     undocumented: docs.undocumented || [],
     non_original: strings(build.non_original),
-    notes: caveats.concat(pendingCi.length ? ['pending CI, confirm before merge: ' + pendingCi.join('; ')] : [], notes),
-  },
+    notes: caveats.concat(notes),
+  } }),
+  // A pending_ci run hands nothing off: the resume confirms the targets
+  // and returns the handoff for the head CI proved.
   next: pendingCi.length
-    ? `after CI finishes on the head, confirm the pending targets: /technical-artist:author-shader ${JSON.stringify({ shader, pr: handoff.pr || undefined, branch: handoff.pr ? undefined : handoff.branch, ci_pending: pendingCi })}; once that returns done, ` + (wp ? `/engineering-practices:deliver-package { wp: "${wp}", prior: <this result> }` : `/engineering-practices:land-pr ${handoff.pr ? `{ pr: "${handoff.pr}" }` : `{ branch: "${handoff.branch}" }`}`)
+    ? resumeNext(pendingCi, { pr: handoff.pr || '', branch: handoff.branch, docs: strings(docs.pages), undocumented: strings(docs.undocumented), notes: caveats.concat(notes), non_original: strings(build.non_original) }) + '; its done result names the next step'
     : wp
     ? `ship it without rebuilding: /engineering-practices:deliver-package { wp: "${wp}", prior: <this result> }; after the code reviewer passes, /engineering-practices:land-pr { pr: "<the PR>" }`
     : `land it (it marks the PR ready, asks the code reviewer, polls CI and squash-merges once passed): /engineering-practices:land-pr ${handoff.pr ? `{ pr: "${handoff.pr}" }` : `{ branch: "${handoff.branch}" }`}`,
