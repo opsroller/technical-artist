@@ -43,3 +43,13 @@ art-performance-audit  args: { scene: "harbour district", tier: "low mobile", fi
 | `blocked` | Regressions or doc problems; see `open` / `docProblems`. |
 | `unverified` | Re-measure failed; fixes not verified. |
 | `done-docs-unverified` | Docs check returned nothing. |
+
+## Run modes
+
+Run modes v1. Besides its own args, the workflow takes the optional `run` arg defined in the engineering-practices
+[workflow run modes reference](https://github.com/opsroller/engineering-practices/blob/main/docs/reference/workflow-run-modes.md):
+`run: { mode: "inline" }` runs every phase in the calling session with no subagents, `run.only` runs chosen phases or steps,
+and `run.from` with `run.results` resumes a stopped run. Without `run`, the workflow and its outputs are as above.
+See [how to run a workflow inline](https://github.com/opsroller/engineering-practices/blob/main/docs/how-to/how-to-run-a-workflow-inline.md).
+
+Step labels, for `run.only` and `run.results`: `baseline`, `analyse:<area>` (`analyse:geometry`, `analyse:draw-calls`, `analyse:pixels`, `analyse:memory`), `fix`, `remeasure`, `docs:do`, `docs:check`.
