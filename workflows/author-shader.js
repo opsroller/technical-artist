@@ -322,12 +322,14 @@ reviews.forEach((r, i) => {
 // Over budget only because the baseline already was: a known risk for the
 // budget owner, in the result and the handoff notes, never a blocker.
 const knownRisks = notes.filter((n) => /^cost: baseline over budget:/i.test(n)).map((n) => 'budget already over before this shader (owned by the budget owner): ' + n.replace(/^cost: baseline over budget:\s*/i, ''))
+// Each such note moves to knownRisks rather than appearing twice.
+for (let i = notes.length - 1; i >= 0; i--) if (/^cost: baseline over budget:/i.test(notes[i])) notes.splice(i, 1)
 let frames = afterFrames
 if (problems.length) {
   phase('Fix')
   const fix = await agent(
     `Fix these review findings on the shader "${shader}" in one pass, in the planned files only, following the same skills and spec as the build:\n${spec}\n- ${problems.join('\n- ')}\n` +
-    'Recompile on every target, re-measure cost (and its baseline on the base commit) if the shader changed, run the project validator and tests, and' + (look.possible ? ` re-capture the after frames with the same command and names (${look.command || 'the project\'s capture command'}), checking size and content as the lookdev-capture skill says,` : '') + ' then commit. A cost finding where the baseline (before) measurement already exceeds the budget and the shader\'s own delta is within its share is not failing: put it in baseline_over with the budget\'s owner (project profile), not in failing. Return what you fixed, each finding that still fails (one line each), baseline_over, the new frames' + (look.possible ? '' : ' (none)') + ' and notes. ' + NOTES_RULE,
+    'Recompile on every target, re-measure cost (and its baseline on the base commit) if the shader changed, run the project validator and tests, and' + (look.possible ? ` re-capture the after frames with the same command and names (${captureCmd('after', before && before.command)}), checking size and content as the lookdev-capture skill says,` : '') + ' then commit. A cost finding where the baseline (before) measurement already exceeds the budget and the shader\'s own delta is within its share is not failing: put it in baseline_over with the budget\'s owner (project profile), not in failing. Return what you fixed, each finding that still fails (one line each), baseline_over, the new frames' + (look.possible ? '' : ' (none)') + ' and notes. ' + NOTES_RULE,
     { schema: FIX, phase: 'Fix', label: 'fix' })
   if (!fix) return { status: 'blocked', stage: 'fix', open: problems, notes }
   strings(fix.notes).forEach((n) => notes.push('fix: ' + n))
