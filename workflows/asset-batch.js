@@ -5,7 +5,7 @@ export const meta = {
   phases: [
     { title: 'Plan', detail: 'conventions, budget class per asset, generator vs authored, doc kinds via the compass' },
     { title: 'Make', detail: 'one agent per asset; each writes only its own files and returns manifest and provenance lines' },
-    { title: 'Check', detail: 'family review, budgets, validation; apply shared-file lines once; fix loop' },
+    { title: 'Check', detail: 'apply shared-file lines once; read-only family review, budgets, validation; fix loop' },
     { title: 'Docs', detail: 'write the planned Diataxis pages, then verify one kind per page' },
   ],
 }
@@ -193,23 +193,28 @@ const CHECK = {
       },
     },
     familyProblems: { type: 'array', items: { type: 'string' } },
-    sharedFilesApplied: { type: 'boolean' },
   },
-  required: ['perAsset', 'sharedFilesApplied'],
+  required: ['perAsset'],
 }
+// The shared files are written once, by a step of their own, so the
+// check that follows only reads.
+const APPLIED = { type: 'object', properties: { applied: { type: 'boolean' }, skipped: { type: 'array', items: { type: 'string' } } }, required: ['applied'] }
+const apply = await agent(
+  `You are the technical-artist recording the asset family "${family}". Results:\n${JSON.stringify(results, null, 2)}\n` +
+  'Using the asset-provenance skill: apply ALL returned manifest lines and provenance records to the shared manifest and provenance log, in one edit each, skipping failed assets. Report whether both were applied and which assets you skipped. Failed make agents: ' + JSON.stringify(failed),
+  { schema: APPLIED, phase: 'Check', label: 'apply' },
+)
+const applied = !!(apply && apply.applied)
 let review = null
 let open = []
-let applied = false
 for (let round = 1; round <= 3; round++) {
   review = await agent(
     `You are the technical-artist reviewing the asset family "${family}" (round ${round}).\nConventions: ${plan.conventions}\nResults:\n${JSON.stringify(results, null, 2)}\n` +
     'Using the skills realtime-asset-authoring (asset-checklist.md), materials-shaders, art-budgets-profiling and asset-provenance: check each asset against its budget and the checklist, run the project validator, and check the set as one family (consistent scale, texel density, style; distinct silhouette and value for gameplay objects from the gameplay camera). ' +
-    (!applied ? 'Then apply ALL returned manifest lines and provenance records to the shared manifest and provenance log yourself, in one edit each, skipping failed assets. ' : 'Shared files were already applied; correct entries only if a fix changed them. ') +
-    'Fix small problems directly; list what remains per asset. Mark an asset "unverified" if you could not check it, never drop it. Failed make agents: ' + JSON.stringify(failed),
+    'Also check the shared manifest and provenance log entries for these assets. Read-only: do not edit anything; list every problem per asset. Mark an asset "unverified" if you could not check it, never drop it. Failed make agents: ' + JSON.stringify(failed),
     { schema: CHECK, phase: 'Check', label: `check:${round}`, independent: true },
   )
   if (!review) { open = results.map(r => `${r.name}: unverified (checker returned nothing)`); continue }
-  if (review.sharedFilesApplied) applied = true
   open = (review.perAsset || []).filter(a => a.verdict !== 'pass').map(a => `${a.name}: ${a.verdict} ${(a.problems || []).join('; ')}`)
     .concat(review.familyProblems || [])
   const seen = (review.perAsset || []).map(a => a.name)
@@ -236,11 +241,15 @@ const docs = await agent(
 )
 if (!docs) return { status: 'blocked', stage: 'docs', open: ['docs writer returned nothing'], results }
 const DOCCHECK = { type: 'object', properties: { ok: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['ok'] }
-const docCheck = await agent(
-  `Review the documentation pages just written for the asset batch "${family}" (writer's report: ${JSON.stringify(docs)}). ` +
-  'Check that every touched page holds one Diataxis kind only, how-to titles name a goal, explanation titles read with "About", reference matches sibling pages, and links connect the kinds. Fix small problems directly and report what remains.',
-  { schema: DOCCHECK, phase: 'Docs', label: 'docs:check', independent: true },
-)
+// The check only reads, so it stays independent of the docs it judges;
+// fixes are their own step, followed by a fresh check.
+const docCheckPrompt = `Review the documentation pages just written for the asset batch "${family}" (writer's report: ${JSON.stringify(docs)}). ` +
+  'Check that every touched page holds one Diataxis kind only, how-to titles name a goal, explanation titles read with "About", reference matches sibling pages, and links connect the kinds. Read-only: do not edit anything; report every problem with its page.'
+let docCheck = await agent(docCheckPrompt, { schema: DOCCHECK, phase: 'Docs', label: 'docs:check', independent: true })
+if (docCheck && !docCheck.ok && (docCheck.problems || []).length) {
+  const docFix = await agent(`Fix these documentation problems with the smallest edits, touching only the pages they name; leave anything that needs a content decision:\n- ${docCheck.problems.join('\n- ')}`, { phase: 'Docs', label: 'docs:fix' })
+  if (docFix) docCheck = await agent(docCheckPrompt, { schema: DOCCHECK, phase: 'Docs', label: 'docs:recheck', independent: true })
+}
 if (!docCheck) return { status: 'done-docs-unverified', results, docs }
 if (!docCheck.ok) return { status: 'blocked', stage: 'docs', open: (docCheck.problems && docCheck.problems.length) ? docCheck.problems : ['docs check failed without details'], results }
 return { status: 'done', results, docs }

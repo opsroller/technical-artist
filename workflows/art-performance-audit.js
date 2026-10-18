@@ -202,7 +202,7 @@ const AFTER = {
 const check = await agent(
   `You are the technical-artist verifying the audit of "${scene}" on "${tier}". Use the same method as the baseline: ${base.method}. Baseline: ${base.baseline}.\n` +
   `Fix report: ${JSON.stringify(fixReport)}\n` +
-  'Re-measure, compare with baseline and budgets, check visually for LOD pops, broken materials or lost readability, and run the project validator. Report numbers, regressions and what remains.',
+  'Re-measure, compare with baseline and budgets, check visually for LOD pops, broken materials or lost readability, and run the project validator. Read-only: do not edit anything. Report numbers, regressions and what remains.',
   { schema: AFTER, phase: 'Check', label: 'remeasure', independent: true },
 )
 if (!check) return { status: 'unverified', stage: 'check', note: 're-measure failed; fixes are not verified', findings, fixReport }
