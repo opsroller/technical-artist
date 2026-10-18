@@ -123,6 +123,7 @@ const docs = await agent(
   DOCS_FRAGMENT + ' Typical: budgets (new or changed) → reference table + explanation of how they were derived; a fix procedure the team will repeat → how-to. Use the project\'s docs location from its profile.',
   { phase: 'Docs', label: 'docs:do' },
 )
+if (!docs) return { status: 'blocked', stage: 'docs', open: ['docs writer returned nothing'], baseline: base.baseline, after: check.after }
 const DOCCHECK = { type: 'object', properties: { ok: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['ok'] }
 const docCheck = await agent(
   `Review the documentation pages just written for the art audit of "${scene}" (writer's report: ${JSON.stringify(docs)}). Check one Diataxis kind per page, title patterns (how-to names a goal; explanation reads with "About"), reference format matches siblings, links between kinds. Fix small problems; report what remains.`,

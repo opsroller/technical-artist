@@ -107,15 +107,17 @@ const CHECK = {
 }
 let review = null
 let open = []
+let applied = false
 for (let round = 1; round <= 3; round++) {
   review = await agent(
     `You are the technical-artist reviewing the asset family "${family}" (round ${round}).\nConventions: ${plan.conventions}\nResults:\n${JSON.stringify(results, null, 2)}\n` +
     'Using the skills realtime-asset-authoring (asset-checklist.md), materials-shaders, art-budgets-profiling and asset-provenance: check each asset against its budget and the checklist, run the project validator, and check the set as one family (consistent scale, texel density, style; distinct silhouette and value for gameplay objects from the gameplay camera). ' +
-    (round === 1 ? 'Then apply ALL returned manifest lines and provenance records to the shared manifest and provenance log yourself, in one edit each, skipping failed assets. ' : 'Shared files were already applied; correct entries only if a fix changed them. ') +
+    (!applied ? 'Then apply ALL returned manifest lines and provenance records to the shared manifest and provenance log yourself, in one edit each, skipping failed assets. ' : 'Shared files were already applied; correct entries only if a fix changed them. ') +
     'Fix small problems directly; list what remains per asset. Mark an asset "unverified" if you could not check it, never drop it. Failed make agents: ' + JSON.stringify(failed),
     { schema: CHECK, phase: 'Check', label: `check:${round}` },
   )
   if (!review) { open = results.map(r => `${r.name}: unverified (checker returned nothing)`); continue }
+  if (review.sharedFilesApplied) applied = true
   open = (review.perAsset || []).filter(a => a.verdict !== 'pass').map(a => `${a.name}: ${a.verdict} ${(a.problems || []).join('; ')}`)
     .concat(review.familyProblems || [])
   const seen = (review.perAsset || []).map(a => a.name)
@@ -129,6 +131,7 @@ for (let round = 1; round <= 3; round++) {
     )
   }
 }
+if (!applied) open.push('shared manifest and provenance log not applied')
 failed.forEach(n => { if (!open.some(o => o.startsWith(n + ':'))) open.push(`${n}: make agent failed; asset not created`) })
 if (open.length) return { status: 'blocked', stage: 'check', open, results }
 
@@ -139,6 +142,7 @@ const docs = await agent(
   DOCS_FRAGMENT + ' Use the project\'s docs location and Diataxis guide from its profile. Typical: generator → reference (parameters, command) + how-to (make a variant); new budgets or conventions → reference + explanation.',
   { phase: 'Docs', label: 'docs:do' },
 )
+if (!docs) return { status: 'blocked', stage: 'docs', open: ['docs writer returned nothing'], results }
 const DOCCHECK = { type: 'object', properties: { ok: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['ok'] }
 const docCheck = await agent(
   `Review the documentation pages just written for the asset batch "${family}" (writer's report: ${JSON.stringify(docs)}). ` +
@@ -146,5 +150,5 @@ const docCheck = await agent(
   { schema: DOCCHECK, phase: 'Docs', label: 'docs:check' },
 )
 if (!docCheck) return { status: 'done-docs-unverified', results, docs }
-if (!docCheck.ok && docCheck.problems && docCheck.problems.length) return { status: 'blocked', stage: 'docs', open: docCheck.problems, results }
+if (!docCheck.ok) return { status: 'blocked', stage: 'docs', open: (docCheck.problems && docCheck.problems.length) ? docCheck.problems : ['docs check failed without details'], results }
 return { status: 'done', results, docs }

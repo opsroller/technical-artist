@@ -89,11 +89,12 @@ const docs = await agent(
   DOCS_FRAGMENT + ' At minimum: a how-to named for the artist\'s goal (not the tool\'s name) and a reference page (options, inputs, outputs, every error message and its fix). Add an explanation only if a real design trade-off was made; update the onboarding tutorial if new artists must use it. Use the project\'s docs location from its profile.',
   { phase: 'Docs', label: 'docs:do' },
 )
+if (!docs) return { status: 'blocked', stage: 'docs', open: ['docs writer returned nothing'] }
 const DOCCHECK = { type: 'object', properties: { ok: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['ok'] }
 const docCheck = await agent(
   `Review the documentation pages just written for the new ${kind} (writer's report: ${JSON.stringify(docs)}). Check one Diataxis kind per page, title patterns, reference format matches siblings, links between kinds, and that the how-to works when followed literally. Fix small problems; report what remains.`,
   { schema: DOCCHECK, phase: 'Docs', label: 'docs:check' },
 )
 if (!docCheck) return { status: 'done-docs-unverified', trial: review.trial, nits: review.nits || [] }
-if (!docCheck.ok) return { status: 'blocked', stage: 'docs', open: docCheck.problems || [] }
+if (!docCheck.ok) return { status: 'blocked', stage: 'docs', open: (docCheck.problems && docCheck.problems.length) ? docCheck.problems : ['docs check failed without details'] }
 return { status: 'done', trial: review.trial, nits: review.nits || [], needsOtherRole: plan.needsOtherRole || 'none' }
