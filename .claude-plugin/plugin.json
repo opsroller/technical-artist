@@ -1,0 +1,22 @@
+{
+  "name": "technical-artist",
+  "version": "0.1.0",
+  "description": "Technical artist role: the bridge between art and engineering for real-time 3D. Authored and procedural assets, PBR materials and shaders, look-dev support, asset pipeline and import validation, naming, art budgets and profiling, LODs, tools for artists, and provenance of every asset.",
+  "author": {
+    "name": "opsroller"
+  },
+  "repository": "https://github.com/opsroller/technical-artist",
+  "license": "GPL-2.0-or-later",
+  "keywords": [
+    "role",
+    "job-function",
+    "technical-art",
+    "3d-assets",
+    "pbr",
+    "shaders",
+    "asset-pipeline",
+    "art-budgets",
+    "lod",
+    "provenance"
+  ]
+}
