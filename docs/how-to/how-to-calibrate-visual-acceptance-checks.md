@@ -10,15 +10,15 @@ workflow.
    the readability criteria and what must tell apart. If it does not, run
    `/technical-artist:visual-target` first.
 2. **Name the subjects**: the things that must tell apart, from which
-   camera (for example "the seven piece kinds on the board, from the
-   gameplay camera").
+   camera (for example "the five pickup types against the floor, from
+   the gameplay camera").
 3. **Run the workflow:**
 
    ```
    calibrate-visual-checks  args: {
      criteria: "R1 to R3 in docs/reference/visual-target.md",
-     subjects: "the seven piece kinds on the board, from the gameplay camera",
-     wp: "WP-46"
+     subjects: "the five pickup types against the floor, from the gameplay camera",
+     wp: "WP-12"
    }
    ```
 

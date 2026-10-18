@@ -105,7 +105,7 @@ if (RUN.error) return RUN.error
 const RUN_OUT = await Promise.race([RUN.halted, (async (agent, phase, log) => {
 // --- run-modes v2 end (workflow body follows; close it with the tail line) ---
 
-const USAGE = 'Usage: asset-batch with args { assets: [{ name: "SM_Crate_01", brief: "wooden crate, breakable, must read as a pickup container", kind: "mesh" }, { name: "T_Stone_01", brief: "carved temple stone texture set", kind: "texture-set" }, ...], family: "dockside props", generator: "<existing generator script, optional>", capture: true, wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>" }'
+const USAGE = 'Usage: asset-batch with args { assets: [{ name: "SM_Crate_01", brief: "wooden crate, breakable, must read as a pickup container", kind: "mesh" }, { name: "T_Planks_01", brief: "weathered dock plank texture set", kind: "texture-set" }, ...], family: "dockside props", generator: "<existing generator script, optional>", capture: true, wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>" }'
 const assets = (args && Array.isArray(args.assets)) ? args.assets.filter(a => a && a.name && a.brief) : []
 if (!assets.length) return USAGE
 const family = (args && args.family) || 'one coherent set'
@@ -308,7 +308,7 @@ for (let round = 1; round <= 3; round++) {
     `You are the technical-artist giving an independent check of the asset family "${family}" (round ${round}), which you did not make.\nConventions: ${plan.conventions}\nTiers: ${tiers.join(', ') || 'none'}\nGenerated outputs: ${plan.generatedOutputs}. ${GENERATED}\nResults:\n${JSON.stringify(results, null, 2)}\n` +
     'Using the skills realtime-asset-authoring (asset-checklist.md), materials-shaders, art-budgets-profiling and asset-provenance: check each asset against its budget and the checklist, run the project validator, and check the set as one family (consistent scale, texel density, style; distinct silhouette and value for gameplay objects from the gameplay camera). ' +
     MATERIAL_RULES + ' ' +
-    'For generated units, run the regenerate command and confirm the outputs match what is in the working tree, and that the generated-output policy holds (ignored and built, or committed). ' +
+    'For generated units, run the regenerate command into a scratch directory or a separate worktree, never over the working tree, and diff its outputs against the working tree; confirm the generated-output policy holds (ignored and built, or committed). ' +
     'Also check the shared manifest and provenance log entries for these assets. Read-only: do not edit anything; list every problem per asset. Mark an asset "unverified" if you could not check it, never drop it. Failed make units: ' + JSON.stringify(failed),
     { schema: CHECK, phase: 'Check', label: `check:${round}`, independent: true },
   )

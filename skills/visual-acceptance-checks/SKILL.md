@@ -5,7 +5,7 @@ description: Use when turning readability criteria into automated checks on rend
 
 # Visual acceptance checks
 
-A readability criterion ("the seven piece kinds tell apart in
+A readability criterion ("the five pickup types tell apart in
 greyscale") is only enforced once a script measures it on rendered
 frames and fails when it is broken. The hard part is the threshold: set
 it from what the art happens to look like today and it passes anything;

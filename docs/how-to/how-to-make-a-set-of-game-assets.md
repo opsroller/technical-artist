@@ -20,13 +20,13 @@ This guide shows you how to produce a family of assets with the
 
    ```
    asset-batch  args: {
-     family: "temple board",
-     wp: "WP-48",
-     generator: "tools/assets/gen_theme_textures.py",
+     family: "dockside props",
+     wp: "WP-12",
+     generator: "tools/gen_dock_textures.py",
      assets: [
-       { name: "T_Stone", brief: "carved stone tiles, matte, sits behind the pieces", kind: "texture-set" },
-       { name: "MI_Gold", brief: "gold piece, must read as gold in greyscale too", kind: "material" },
-       { name: "MI_Ruby", brief: "ruby piece, must not be confused with carnelian", kind: "material" }
+       { name: "T_Planks", brief: "weathered dock planks, matte, sits behind the props", kind: "texture-set" },
+       { name: "MI_Brass", brief: "brass fittings on pickups, must read as metal in greyscale too", kind: "material" },
+       { name: "MI_HazardPaint", brief: "hazard paint on explosive barrels, must not be confused with pickups", kind: "material" }
      ]
    }
    ```

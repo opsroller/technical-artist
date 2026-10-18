@@ -27,11 +27,11 @@ Missing required args return a usage string.
 Example:
 
 ```
-asset-batch  args: { family: "temple board", wp: "WP-48",
-  generator: "tools/assets/gen_theme_textures.py",
+asset-batch  args: { family: "dockside props", wp: "WP-12",
+  generator: "tools/gen_dock_textures.py",
   assets: [
-    { name: "T_Stone", brief: "carved stone tiles, matte, must sit behind the pieces", kind: "texture-set" },
-    { name: "MI_Gold", brief: "gold piece, must read as gold in greyscale too", kind: "material" }
+    { name: "T_Planks", brief: "weathered dock planks, matte, must sit behind the props", kind: "texture-set" },
+    { name: "MI_Brass", brief: "brass fittings on pickups, must read as metal in greyscale too", kind: "material" }
   ] }
 ```
 

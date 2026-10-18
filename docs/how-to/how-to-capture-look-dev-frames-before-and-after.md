@@ -16,9 +16,9 @@ for you.
    ```sh
    VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json \
      xvfb-run -a -s "-screen 0 1920x1080x24" \
-     godot --path game --write-movie /tmp/frames/look.png \
+     godot --path . --write-movie /tmp/frames/look.png \
        --fixed-fps 30 --quit-after 30 --resolution 1920x1080 \
-       res://assets/lookdev/LD_Board.tscn
+       res://lookdev/LD_Neutral.tscn
    ```
 
 3. **Capture "before" from the base commit.** Check out the default branch

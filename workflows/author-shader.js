@@ -106,7 +106,7 @@ if (RUN.error) return RUN.error
 const RUN_OUT = await Promise.race([RUN.halted, (async (agent, phase, log) => {
 // --- run-modes v2 end (workflow body follows; close it with the tail line) ---
 
-const USAGE = 'usage: author-shader { shader: "<shader name, e.g. SH_Gem>", brief: "<what it must look like, where it is used, what it must communicate>", replaces: "<existing shader or material, optional>", wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>" }'
+const USAGE = 'usage: author-shader { shader: "<shader name, e.g. SH_Water>", brief: "<what it must look like, where it is used, what it must communicate>", replaces: "<existing shader or material, optional>", wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>" }'
 if (!args || !args.shader || !args.brief) return USAGE
 const shader = String(args.shader)
 const brief = String(args.brief)

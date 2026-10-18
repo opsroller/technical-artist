@@ -15,7 +15,7 @@
 | Arg | Type | Required | Meaning |
 |---|---|---|---|
 | `criteria` | string | yes | Criteria ids or text, or where the visual target writes them. |
-| `subjects` | string | yes | What must tell apart, e.g. the seven piece kinds on the board. |
+| `subjects` | string | yes | What must tell apart, e.g. the five pickup types against the floor. |
 | `existing` | string | no | An existing check script to re-calibrate. |
 | `wp` | string | no | Work package id; puts `Refs:` in the PR and points `next` at deliver-package. |
 | `branch` | string | no | Existing branch to work on. |

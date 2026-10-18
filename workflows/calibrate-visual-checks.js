@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 export const meta = {
   name: 'calibrate-visual-checks',
-  description: 'Turn readability criteria into automated checks on rendered frames and calibrate their thresholds: plan metrics, masks and a labelled set of known-good and known-bad captures, capture them (lookdev-capture skill), measure, set each threshold between good and bad with a margin, confirm on a holdout, attack the calibration independently, document it and push it as a handoff for engineering-practices deliver-package or land-pr. Use for value or luminance separation, contrast and colour-blind separation checks, or to re-tune existing ones. args: { criteria: "<criteria ids or text, or where the visual target writes them>", subjects: "<what must tell apart, e.g. the seven piece kinds>", existing?: "<existing check script, optional>", wp?: "<work package id>", branch?: "<existing branch>", pr?: "<existing PR>" }',
+  description: 'Turn readability criteria into automated checks on rendered frames and calibrate their thresholds: plan metrics, masks and a labelled set of known-good and known-bad captures, capture them (lookdev-capture skill), measure, set each threshold between good and bad with a margin, confirm on a holdout, attack the calibration independently, document it and push it as a handoff for engineering-practices deliver-package or land-pr. Use for value or luminance separation, contrast and colour-blind separation checks, or to re-tune existing ones. args: { criteria: "<criteria ids or text, or where the visual target writes them>", subjects: "<what must tell apart, e.g. the five pickup types>", existing?: "<existing check script, optional>", wp?: "<work package id>", branch?: "<existing branch>", pr?: "<existing PR>" }',
   phases: [
     { title: 'Plan', detail: 'criteria, metric and mask per check, CVD model, labelled good and bad cases with a holdout, tiers, doc kinds' },
     { title: 'Capture', detail: 'render the good cases and make the bad ones (lookdev-capture skill); check every frame' },
@@ -105,7 +105,7 @@ if (RUN.error) return RUN.error
 const RUN_OUT = await Promise.race([RUN.halted, (async (agent, phase, log) => {
 // --- run-modes v2 end (workflow body follows; close it with the tail line) ---
 
-const USAGE = 'usage: calibrate-visual-checks { criteria: "<criteria ids or text, or where the visual target writes them>", subjects: "<what must tell apart, e.g. the seven piece kinds on the board>", existing: "<existing check script, optional>", wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>" }'
+const USAGE = 'usage: calibrate-visual-checks { criteria: "<criteria ids or text, or where the visual target writes them>", subjects: "<what must tell apart, e.g. the five pickup types against the floor>", existing: "<existing check script, optional>", wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>" }'
 if (!args || !args.criteria || !args.subjects) return USAGE
 const criteria = String(args.criteria)
 const subjects = String(args.subjects)

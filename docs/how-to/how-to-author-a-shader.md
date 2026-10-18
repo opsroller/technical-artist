@@ -18,10 +18,10 @@ with the `author-shader` workflow.
 
    ```
    author-shader  args: {
-     shader: "SH_Gem",
-     brief: "faceted gems with refraction on desktop; each kind tells apart in greyscale; used on the seven gem pieces",
-     replaces: "the gem material instances on the standard shader",
-     wp: "WP-48"
+     shader: "SH_Water",
+     brief: "harbour water with refraction and foam on high tiers; pickups floating on it still read in greyscale; covers up to half the screen",
+     replaces: "the water material instance on the standard shader",
+     wp: "WP-12"
    }
    ```
 
