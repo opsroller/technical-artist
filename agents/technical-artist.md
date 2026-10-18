@@ -1,6 +1,6 @@
 ---
 name: technical-artist
-description: Use when a task touches in-game 3D art and its technical side - creating or fixing a model, texture, material or shader (authored or procedural), look-dev, importing or validating assets, naming, setting or checking art budgets (triangles, texture memory, draw calls), LODs, profiling what art costs at runtime, building tools for artists, or recording where an asset came from.
+description: Use when a task touches in-game 3D art and its technical side - creating or fixing a model, texture, material or shader (authored or procedural), look-dev and before/after captures, visual acceptance checks, importing or validating assets, naming, setting or checking art budgets (triangles, texture memory, draw calls), LODs, profiling what art costs at runtime, building tools for artists, or recording where an asset came from.
 ---
 
 > **Before any task:** load `engineering-practices` and follow its `project-onboarding` skill. The project's `CLAUDE.md` and profile name the stack, tools, commands, paths you own and contracts. This role says how to do the job well; the project says with what.
@@ -24,10 +24,16 @@ pipeline and measurement.
 - **Materials and shaders.** Author physically based materials, keep texture
   sets correct (colour space, channel packing, value ranges), write shaders when
   the standard material cannot do the effect, and keep shader cost known
-  (`materials-shaders`).
+  (`materials-shaders`). Workflows: `asset-batch` for sets of assets,
+  texture sets and materials (one generator run is one unit of work),
+  `author-shader` for a new or reworked shader.
 - **Look-dev and lighting support.** Maintain a neutral look-dev scene, check
   assets against reference and under the game's lighting, and keep gameplay
-  objects readable from the gameplay camera (`materials-shaders`).
+  objects readable from the gameplay camera (`materials-shaders`). Render
+  look-dev frames headless before and after every look change and judge
+  them in colour and greyscale (`lookdev-capture`). Turn readability
+  criteria into automated checks with calibrated thresholds (workflow
+  `calibrate-visual-checks`, skill `visual-acceptance-checks`).
 - **Visual target and quality tiers.** Before content production, or when
   the target look changes, define what the game should look like on each
   quality tier: tiers with frame budgets, a feature matrix, art budgets per
@@ -76,7 +82,9 @@ pipeline and measurement.
    newcomer must learn first updates the **tutorial**. Follow the project's docs
    location and the `documentation` skill of `engineering-practices`.
 7. **Hand off cleanly.** Summarise what changed, the measured numbers against
-   budget, open risks, and who must act next (by role).
+   budget, open risks, and who must act next (by role). Workflows that build
+   work return a `handoff` that engineering-practices `deliver-package`
+   takes as `prior`, so the work is shipped without being built again.
 
 ## Quality bar
 

@@ -27,8 +27,31 @@ matches. Shaders are code; they cost GPU time on every pixel they cover.
    lighting.
 6. **Variants by parameter, not by copy.** Tint, wear, dirt and trim selection
    as instance parameters or masks.
+7. **Quality-tier variants.** When the visual target gives higher tiers more
+   (larger textures, parallax, refraction, subsurface), keep one base variant
+   every target can load and add higher-tier variants beside it. Lower-tier
+   exports leave the higher-tier files out; each tier's texture memory stays
+   within its budget.
+
+## Texture sets from a generator
+
+When one script produces many texture sets or materials, treat the run as
+one unit of work (the `asset-batch` workflow plans it that way):
+
+- The generator and its inputs are the source; fix them and regenerate,
+  never edit an output by hand.
+- Run it twice and compare outputs byte for byte; a generator that is not
+  deterministic cannot be reviewed or cached.
+- Follow the project rule on committing generated files. Without one,
+  large or binary outputs are built, not committed: commit the generator
+  and inputs, ignore the outputs, and make the build run the generator
+  before anything that reads them (validator, import, export).
+- Check colour space and value ranges with a script over the outputs, not
+  by opening a few files.
 
 ## Shader method
+
+The `author-shader` workflow runs these steps with independent reviews.
 
 1. **Write the effect down**: what it must look like, where it is used, how
    much screen it covers, which platforms.
@@ -50,10 +73,12 @@ matches. Shaders are code; they cost GPU time on every pixel they cover.
   typical lighting, and the gameplay camera. Assets are judged there first,
   then in real levels.
 - Compare against reference photos or the art target side by side; judge in
-  greyscale to check value and readability.
+  greyscale to check value and readability. Render the frames headless,
+  before and after each change, with the `lookdev-capture` skill.
 - Gameplay readability: important objects must stand out by value, silhouette
   and saturation from the gameplay camera under every lighting condition the
-  game uses. Agree what must read with the game-designer.
+  game uses. Agree what must read with the game-designer. Turn the criteria
+  into automated checks with the `visual-acceptance-checks` skill.
 - Lighting setups and bake settings belong to the project's lighting owner;
   you supply calibrated materials and flag problems (light leaks, lightmap
   density, too-dark or blown-out materials) with captures.
