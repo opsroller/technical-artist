@@ -33,55 +33,89 @@ frames go; it wins over this skill.
    temporal anti-aliasing, global illumination and exposure to settle,
    then keep one named frame (e.g. frame 30 at 30 fps). The same frame
    number is used before and after.
-3. **Isolate the scene.** Many projects draw over every scene they load:
-   autoloaded or global singletons with UI (menus, a HUD, a fade or
-   transition layer, subtitles), debug or performance overlays, a
-   splash or "press start" screen that runs first. A look-dev frame with
-   those on judges the overlay, not the material. Turn them off for the
-   capture with an override the project documents, in this order of
-   preference: a capture flag or environment variable the overlays
-   honour (they hide themselves or never instantiate); a capture
-   configuration or project override file that leaves them out; a
-   dedicated look-dev entry point that boots without them. Never edit
-   the shipping configuration to capture. If the project has none, add
-   the flag (owned by whoever owns those overlays, per the project
-   profile) and document it as reference. The gameplay-camera frame keeps
-   gameplay UI only when the judgement is about the screen as played;
-   say which frames keep it.
-4. **Render with the engine's offline mode.** Use the engine's
+3. **Isolate the scene: capture mode.** Many projects draw over every
+   scene they load: autoloaded or global singletons with UI (menus, a
+   HUD, a fade or transition layer, subtitles), debug or performance
+   overlays, a splash or "press start" screen that runs first. A
+   look-dev frame with those on judges the overlay, not the material.
+   Capture in capture mode: a capture hook the project provides that
+   hides UI and overlays, in this order of preference: a command-line
+   flag or environment variable the overlays honour (they hide
+   themselves or never instantiate); a capture configuration or project
+   override file that leaves them out; a dedicated look-dev entry point
+   that boots without them. Find it in the project profile, the docs
+   reference or the overlays' own code, and write down which hook each
+   capture uses. Never hand-edit the shipping configuration (project
+   settings, autoload or singleton lists, the main scene) to capture.
+   If the project has no hook, propose adding one as a small separate
+   change owned by whoever owns the overlay code (per the project
+   profile), documented as reference; until it lands, use an override
+   that changes no committed file if the engine allows one (a
+   command-line setting, an override file in a temporary copy of the
+   project), or capture with the overlays and label those frames. The
+   gameplay-camera frame keeps gameplay UI only when the judgement is
+   about the screen as played; say which frames keep it.
+4. **Find or build the capture command.** Use the project's capture
+   command if it has one (project profile, scripts, CI jobs, docs). If
+   it has none, build one from the generic recipe below and keep it as
+   a script the project can adopt (propose it with its reference page);
+   if it cannot be built here (no engine binary, display or software
+   driver), mark the capture pending with the reason. Never assume a
+   command exists because another project had one.
+5. **Render with the engine's offline mode.** Use the engine's
    fixed-step movie or screenshot mode, not a screen grab. A truly
    headless run often uses a dummy renderer and writes nothing; render
    to a virtual display instead (Xvfb on Linux) and, without a GPU, use
    a software driver (Mesa lavapipe for Vulkan, llvmpipe for OpenGL).
    Pin the driver and say which one rendered each frame.
-5. **Verify every frame.** Check its pixel size (a resolution flag can be
+6. **Verify every frame.** Check its pixel size (a resolution flag can be
    ignored; set the window or viewport size override the engine offers
    and check again), that it is not black, blank or a loading screen,
    and that it is the frame you asked for. Check it shows only the
    scene: no text, HUD, menu, fade, letterbox or debug layer the scene
-   does not contain (render the scene once with the override off to see
+   does not contain (render the scene once with capture mode off to see
    what the overlays draw and where). Re-capture any that fail; a frame
    that still shows an overlay is left out and reported. A frame that
    was not checked is not evidence.
-6. **Capture "before" first.** Render the before frames from the base
+7. **Capture "before" first.** Render the before frames from the base
    commit (a separate worktree or checkout of the default branch) with
    the same command, size, frame and driver, before changing anything.
    Name files `<scene>-<camera>-<renderer or tier>-<before|after>.<ext>`.
-7. **Derive comparison images.** For each frame: a greyscale copy (value
+8. **Derive comparison images.** For each frame: a greyscale copy (value
    and readability), a side-by-side before | after, and optionally a
    numeric difference (mean or RMS per channel) to prove a change did or
    did not move pixels. Use a scripted tool (Pillow, ImageMagick) so the
    derived images are reproducible.
-8. **Judge.** Look at every frame and its greyscale copy. Compare with
+9. **Judge.** Look at every frame and its greyscale copy. Compare with
    the brief, the art direction and the readability criteria from the
    visual target: gameplay objects tell apart by value in greyscale, by
    silhouette and by colour; nothing washed out, too dark, blown out,
    noisy or aliased; higher tiers add to the base look rather than change
    what reads. Name each failure with its frame.
-9. **Store by the project's rule.** Small compressed frames (JPEG or WebP)
+10. **Store by the project's rule.** Small compressed frames (JPEG or WebP)
    in the docs when a page shows them; full-size frames as CI or build
    artifacts, not in the repository. Never commit large binary frames
    by default.
+
+## Generic capture command recipe
+
+When the project has no capture command, build one from these parts;
+the engine-specific flags are in [engine-recipes.md](engine-recipes.md).
+
+| Part | What it sets |
+|---|---|
+| Engine | the binary at the version the project pins |
+| Scene and camera | the look-dev scene or level, and the camera to render from |
+| Capture mode | the project's capture hook (flag, environment variable or override file) |
+| Size | resolution, plus the window or viewport size override |
+| Renderer | the renderer or tier and the graphics driver |
+| Time | fixed frame rate, warm-up frames, the frame to keep, then quit |
+| Output | the frame path, named as in step 7 |
+| Display | a virtual display wrapper and a software driver when there is no GPU |
+
+Wrap it in one script that takes scene, camera, renderer or tier, size,
+frame and output, runs the before and after captures the same way, and
+exits non-zero when a frame is missing or fails the checks in step 6.
 
 ## What a software renderer can and cannot tell you
 
@@ -96,7 +130,7 @@ teammate's machine) when the change depends on them.
 ## Docs this work owes
 
 A new capture command or script → reference (command, scenes, sizes,
-driver, the overlay override) and a how-to for running it. Frames shown in docs → keep them
+driver, the capture hook) and a how-to for running it. Frames shown in docs → keep them
 next to the page that explains the look, captioned with renderer or
 tier and driver.
 
@@ -104,6 +138,8 @@ tier and driver.
 
 - Black or grey frames: headless dummy renderer, or no GPU and no
   software driver.
+- The shipping configuration hand-edited to hide overlays for a capture.
+- A capture command assumed rather than found or built.
 - A global overlay (menu, HUD, fade layer, debug stats) drawn over the
   look-dev scene, or a fade that is mid-transition on the kept frame;
   the before and after then differ by overlay state, not by the change.

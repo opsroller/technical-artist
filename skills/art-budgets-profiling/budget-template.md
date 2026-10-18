@@ -9,10 +9,12 @@ numbers are placeholders to show shape, not recommendations.
 |---|---|
 | Tier | e.g. low mobile / mid / high desktop |
 | Resolution / frame target | e.g. 1080p / 33.3 ms |
+| 3D render scale | e.g. 0.75 of output, UI at native, upscaler if any |
 | Content share of GPU frame | e.g. 60 % |
 | Per-frame triangles (typical / worst) | |
 | Per-frame draw calls (typical / worst) | |
 | Resident texture memory per level | |
+| Decals (max visible / fade distance) | |
 | Measurement method | tool category, scene, number of captures |
 
 ## Per class
@@ -24,6 +26,7 @@ numbers are placeholders to show shape, not recommendations.
 | Small prop | | | | | | |
 | Environment kit piece | | | | | | |
 | Effect | | | | | | overdraw limit |
+| Decal | | | | | | count per view, fade distance |
 
 ## Rules
 

@@ -143,16 +143,19 @@ const PLAN = {
     fallbacks: { type: 'array', items: { type: 'string' }, description: 'each "where: what renders instead" for a tier or renderer without the full effect' },
     permutations: { type: 'string', description: 'static switches and how many compiled variants they make' },
     parameters: { type: 'array', items: { type: 'string' }, description: 'each artist parameter with name, range and default; everything else stays hidden' },
-    budget: { type: 'string', description: 'cost limit on the lowest tier that uses it: ms at its coverage, or instruction and texture-sample counts, and how it is measured' },
+    budget: { type: 'string', description: 'cost limit on the lowest tier that uses it: ms at its coverage, or instruction and texture-sample counts, and how it is measured; the frame or scene budget it is a share of, and who owns that budget' },
     files: { type: 'array', items: { type: 'string' }, description: 'shader, include, material instances and look-dev scene files this work may write' },
     lookdev: {
       type: 'object',
       properties: {
         possible: { type: 'boolean' },
         frames: { type: 'array', items: { type: 'string' }, description: 'each "scene / camera / renderer or tier"' },
-        command: { type: 'string' },
+        command: { type: 'string', description: 'the project\'s capture command, or empty when it has none' },
+        commandFound: { type: 'boolean', description: 'true only if the project already has a capture command you found (profile, scripts, CI jobs, docs); false means the Before step builds one from the lookdev-capture generic recipe' },
         outDir: { type: 'string' },
-        overlays: { type: 'string', description: 'what the project draws over every scene (autoloads or global singletons with UI, fades, debug HUDs) and how the capture turns it off (a capture flag the overlays honour, a capture config without them), or "none"' },
+        overlays: { type: 'string', description: 'what the project draws over every scene (autoloads or global singletons with UI, fades, debug HUDs), or "none"' },
+        hook: { type: 'string', description: 'the capture hook the project provides for capture mode (command-line flag, environment variable or override file) that hides UI and overlays, or "none"' },
+        hookProposal: { type: 'string', description: 'when overlays exist and hook is "none": the small separate change that adds a hook and who owns that code (project profile); otherwise empty' },
         why: { type: 'string' },
       },
       required: ['possible'],
@@ -164,10 +167,10 @@ const PLAN = {
   },
   required: ['effect', 'coverage', 'standard', 'targets', 'tiers', 'fallbacks', 'permutations', 'parameters', 'budget', 'files', 'lookdev', 'ambiguous', 'docKinds'],
 }
-const FRAMES = { type: 'object', properties: { frames: { type: 'array', items: { type: 'string' }, description: 'each "<file> : scene / camera / renderer or tier, size WxH, driver"' }, contaminated: { type: 'array', items: { type: 'string' }, description: 'each "<file>: what drew over the scene" for a frame that still shows an overlay after the override; these are left out of frames' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['frames'] }
-const BUILD = { type: 'object', properties: { compiles: { type: 'array', items: { type: 'string' }, description: 'each "<renderer or platform>: ok | error <message> | pending-ci <CI job that compiles it>"' }, measured: { type: 'string', description: 'cost on the lowest tier that uses it, with device or stand-in, or "estimate: ..."' }, variants: { type: 'string', description: 'compiled variant count' }, files: { type: 'array', items: { type: 'string' } }, branch: { type: 'string' }, non_original: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' } }, required: ['compiles', 'measured', 'files', 'branch'] }
+const FRAMES = { type: 'object', properties: { command: { type: 'string', description: 'the capture command used, built from the lookdev-capture generic recipe if the project had none' }, frames: { type: 'array', items: { type: 'string' }, description: 'each "<file> : scene / camera / renderer or tier, size WxH, driver"' }, contaminated: { type: 'array', items: { type: 'string' }, description: 'each "<file>: what drew over the scene" for a frame that still shows an overlay after the override; these are left out of frames' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['frames'] }
+const BUILD = { type: 'object', properties: { compiles: { type: 'array', items: { type: 'string' }, description: 'each "<renderer or platform>: ok | error <message> | pending-ci <CI job that compiles it>"' }, measured: { type: 'string', description: 'cost on the lowest tier that uses it, with device or stand-in, or "estimate: ..."' }, baseline: { type: 'string', description: 'the same measurement of the frame or scene on the base commit (before the change), so the shader\'s own delta shows, or "not measured"' }, variants: { type: 'string', description: 'compiled variant count' }, files: { type: 'array', items: { type: 'string' } }, branch: { type: 'string' }, non_original: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' } }, required: ['compiles', 'measured', 'files', 'branch'] }
 const REVIEW = { type: 'object', properties: { problems: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['problems'] }
-const FIX = { type: 'object', properties: { fixed: { type: 'array', items: { type: 'string' } }, failing: { type: 'array', items: { type: 'string' } }, frames: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['fixed', 'failing'] }
+const FIX = { type: 'object', properties: { fixed: { type: 'array', items: { type: 'string' } }, failing: { type: 'array', items: { type: 'string' } }, baseline_over: { type: 'array', items: { type: 'string' }, description: 'each "<finding>: baseline <before> already over budget <budget>, shader delta <delta> within its share <share>; owner <who owns the budget>" for an over-budget finding that only fails because the baseline already did' }, frames: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['fixed', 'failing'] }
 const DOCS = { type: 'object', properties: { pages: { type: 'array', items: { type: 'string' } }, undocumented: { type: 'array', items: { type: 'string' } } }, required: ['pages', 'undocumented'] }
 const DOCCHECK = { type: 'object', properties: { ok: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['ok'] }
 const HANDOFF = { type: 'object', properties: { branch: { type: 'string' }, pr: { type: 'string' }, head_sha: { type: 'string' }, tests_pass: { type: 'boolean' }, problem: { type: 'string' } }, required: ['branch', 'tests_pass'] }
@@ -242,7 +245,7 @@ const plan = await agent(
   (replaces ? `It replaces or reworks: ${replaces}. Read it first and keep what it gets right.\n` : '') +
   'Write the effect down before any code: what it must look like, where it is used and how much screen it covers, opaque or blended. Start from the project\'s shared material or shader includes; a new shader needs a stated reason the standard one cannot do the effect. ' +
   'Read the project\'s quality tiers and renderer decision (visual target; the renderer and features per tier are the graphics-programmer\'s decision, so take them as given and put any missing decision in blockers), list the renderers and platforms it must run on (and in ci_only each one this machine cannot compile for, such as a platform-only toolchain, with the CI job that does), the technique per tier and a fallback for every tier or renderer without the full effect. ' +
-  'Plan static switches with their compiled variant count, the artist parameters with ranges and defaults, and a cost budget on the lowest tier that uses it with how it is measured. Plan the look-dev frames (lookdev-capture skill) or set possible to false with the reason; find what the project draws over every scene (autoloads, global singletons, persistent UI or debug overlays) and plan how the capture turns it off, as the skill\'s "Isolate the scene" step says. ' +
+  'Plan static switches with their compiled variant count, the artist parameters with ranges and defaults, and a cost budget on the lowest tier that uses it with how it is measured, the frame or scene budget it is a share of and who owns that budget. Plan the look-dev frames (lookdev-capture skill). Detect whether the project has a capture command (profile, scripts, CI jobs, docs) and set commandFound; never assume one exists. If it has none, the Before step builds one from the skill\'s generic recipe; set possible to false with the reason only when none can be built here (no engine binary, display or software driver), and the capture is then pending. Find what the project draws over every scene (autoloads, global singletons, persistent UI or debug overlays) and the capture hook it provides for capture mode (flag, environment variable or override file), as the skill\'s capture-mode step says; if there is none, write the small separate change that adds one and who owns that code in hookProposal, and never plan to hand-edit shipping configuration. ' +
   'State each gap as "AMBIGUOUS: <question> -> default <value>". Plan documentation with the Diataxis compass: a new shader owes reference (parameters, permutations, cost, platforms, fallbacks) and an explanation of design choices; a how-to when someone must do something new with it. List the files you will change. Do not edit files.',
   { schema: PLAN, phase: 'Plan', label: 'plan' })
 if (!plan) return 'blocked: planning failed (no plan returned) for ' + shader
@@ -250,10 +253,16 @@ if (strings(plan.blockers).length) return { status: 'blocked', stage: 'plan', op
 const ambiguous = strings(plan.ambiguous)
 const caveats = strings(plan.caveats)
 const look = plan.lookdev || { possible: false }
-if (!look.possible) notes.push('look-dev frames not captured: ' + (look.why || 'the plan found no way to render headless'))
+if (!look.possible) notes.push('look-dev capture pending: ' + (look.why || 'the plan found no way to render headless'))
+// A missing capture hook is someone else's code: propose it, do not edit shipping config.
+const hookProposal = look.possible && look.hookProposal && String(look.hookProposal).trim() ? 'capture hook proposed as a separate change: ' + String(look.hookProposal).trim() : ''
+if (hookProposal) notes.push(hookProposal)
 const ciOnly = strings(plan.ci_only)
 const spec = `Effect: ${plan.effect}\nCoverage: ${plan.coverage}\nBase: ${plan.standard}\nTargets: ${strings(plan.targets).join(', ')}\nCI-only targets: ${ciOnly.join('; ') || 'none'}\nTiers: ${strings(plan.tiers).join('; ') || 'none'}\nFallbacks: ${strings(plan.fallbacks).join('; ') || 'none'}\nPermutations: ${plan.permutations}\nParameters: ${strings(plan.parameters).join('; ')}\nBudget: ${plan.budget}`
-const captureBrief = (tag) => `Capture the look-dev frames ${tag === 'before' ? 'before the change' : 'with the new shader'}, following the technical-artist lookdev-capture skill exactly: ${JSON.stringify(look.frames || [])} with ${look.command || 'the project\'s headless render command'}, into ${look.outDir || 'a frames directory the project profile names'}. Name each file <scene>-<camera>-<renderer or tier>-${tag}. Isolate the scene from what the project draws over every scene (${look.overlays || 'find it: autoloads, global singletons, persistent UI'}) with the planned override, and check each frame shows only the scene: no HUD, text, fade or debug layer the scene does not contain (render the scene once with the override off if you need to see what the overlays draw). Re-capture a contaminated frame; one that still shows an overlay goes in contaminated, not frames. ${tag === 'before' ? 'Render from the base commit (a separate worktree of the base branch) so the frames show the state before this work, even if the working branch already has changes. ' : 'Render from the working tree with the same command, size, frame and driver as the before frames. '} Check every frame is the requested size and is not black, blank or captured before the scene settled; re-capture any that fail. Write a greyscale copy of each. Change no project files except the frames. Return the frame files with what each shows and the driver that rendered it, and anything you could not capture in problems.`
+const captureCmd = (tag, built) => built ? built : look.commandFound && look.command ? look.command
+  : tag === 'before' ? 'no capture command (the project has none): build one from the skill\'s generic capture command recipe as a script outside shipping configuration, use it, and return it in command; if it cannot be built here, return no frames and say why in problems'
+  : 'the capture command the before step built'
+const captureBrief = (tag, built) => `Capture the look-dev frames ${tag === 'before' ? 'before the change' : 'with the new shader'}, following the technical-artist lookdev-capture skill exactly: ${JSON.stringify(look.frames || [])} with ${captureCmd(tag, built)}, into ${look.outDir || 'a frames directory the project profile names'}. Name each file <scene>-<camera>-<renderer or tier>-${tag}. Isolate the scene from what the project draws over every scene (${look.overlays || 'find it: autoloads, global singletons, persistent UI'}) in capture mode through the project's capture hook (${look.hook && look.hook !== 'none' ? look.hook : 'none exists: do not hand-edit shipping configuration; use an override that changes no committed file if the engine allows one, otherwise capture with the overlays'}), and check each frame shows only the scene: no HUD, text, fade or debug layer the scene does not contain (render the scene once with capture mode off if you need to see what the overlays draw). Re-capture a contaminated frame; one that still shows an overlay goes in contaminated, not frames. ${tag === 'before' ? 'Render from the base commit (a separate worktree of the base branch) so the frames show the state before this work, even if the working branch already has changes. ' : 'Render from the working tree with the same command, size, frame and driver as the before frames. '} Check every frame is the requested size and is not black, blank or captured before the scene settled; re-capture any that fail. Write a greyscale copy of each. Change no project files except the frames. Return the capture command used, the frame files with what each shows and the driver that rendered it, and anything you could not capture in problems.`
 log(`${strings(plan.targets).length} targets, ${strings(plan.tiers).length} tiers, ${strings(plan.parameters).length} parameters, ${ambiguous.length} ambiguous`)
 
 let before = null
@@ -261,7 +270,7 @@ if (look.possible) {
   phase('Before')
   before = await agent(captureBrief('before'), { schema: FRAMES, phase: 'Before', label: 'capture:before' })
   if (before && strings(before.contaminated).length) notes.push('before frames still showing overlays, left out: ' + strings(before.contaminated).join('; '))
-  if (!before || !strings(before.frames).length) notes.push('before frames missing: ' + (before ? strings(before.problems).join('; ') : 'capture step returned nothing'))
+  if (!before || !strings(before.frames).length) notes.push('look-dev capture pending, before frames missing: ' + (before ? strings(before.problems).join('; ') : 'capture step returned nothing'))
 }
 
 phase('Build')
@@ -271,8 +280,8 @@ const build = await agent(
   (ambiguous.length ? 'Implement each stated default as a named value and keep this list:\n- ' + ambiguous.join('\n- ') + '\n' : '') +
   'Compile or load it on every target renderer (headless where the engine allows) and report each result as "<target>: ok" or "<target>: error <message>". A target this machine cannot compile for at all (no toolchain or driver for that platform, e.g. a platform-only shader compiler), and that a named CI job does compile, is "<target>: pending-ci <CI job>": make sure that job builds this shader for that target (say so in notes if it does not and you could not add it), and never report such a target as ok. A target with no CI job to prove it is an error. ' +
   (ciOnly.length ? 'Planned CI-only targets: ' + ciOnly.join('; ') + '. ' : '') +
-  'Measure the cost on the lowest tier that uses it against the budget (instruction and sample counts from the compiler, or a timed capture at its coverage); if no target device is reachable, give a sourced estimate and label it "estimate". Count compiled variants. Run the project validator and tests. ' +
-  'Log every non-original item (code, noise textures, LUTs) per the asset-provenance skill. Commit with Conventional Commits. Return compile results per target, the measured or estimated cost, the variant count, the files, the branch and the non-original items (empty if none).',
+  'Measure the cost on the lowest tier that uses it against the budget, and the same measurement on the base commit as the baseline, so the shader\'s own delta shows (instruction and sample counts from the compiler, or a timed capture at its coverage); if no target device is reachable, give a sourced estimate and label it "estimate". Count compiled variants. Run the project validator and tests. ' +
+  'Log every non-original item (code, noise textures, LUTs) per the asset-provenance skill. Commit with Conventional Commits. Return compile results per target, the measured or estimated cost, the baseline, the variant count, the files, the branch and the non-original items (empty if none).',
   { schema: BUILD, phase: 'Build', label: 'build' })
 if (!build) return { status: 'blocked', stage: 'build', open: ['build step returned nothing'] }
 const pendingCi = strings(build.compiles).filter((c) => PENDING_RE.test(c) && PENDING_RE.exec(c)[1].trim())
@@ -283,7 +292,7 @@ if (build.notes) notes.push('build: ' + build.notes)
 let after = null
 if (look.possible) {
   phase('After')
-  after = await agent(captureBrief('after'), { schema: FRAMES, phase: 'After', label: 'capture:after' })
+  after = await agent(captureBrief('after', before && before.command), { schema: FRAMES, phase: 'After', label: 'capture:after' })
   if (after && strings(after.contaminated).length) notes.push('after frames still showing overlays, left out: ' + strings(after.contaminated).join('; '))
   if (!after || !strings(after.frames).length) notes.push('after frames missing: ' + (after ? strings(after.problems).join('; ') : 'capture step returned nothing'))
 }
@@ -292,7 +301,7 @@ const afterFrames = after ? strings(after.frames) : []
 phase('Review')
 const lenses = [
   { key: 'look', text: `look: open every before and after frame and its greyscale copy (lookdev-capture skill, "Judge"). Before: ${JSON.stringify(before ? before.frames : [])}. After: ${JSON.stringify(afterFrames)}. Does it look like the effect written down, read from the gameplay camera, keep gameplay objects apart by value, silhouette and colour on every tier captured, and add to the base look rather than change what reads? A software-rendered frame judges values and readability, not GPU-only features. If there are no after frames, say so in problems.` },
-  { key: 'cost', text: `cost and permutations: budget ${plan.budget}; measured ${build.measured}; ${build.variants || 'unknown'} compiled variants (planned: ${plan.permutations}). Read the shader for pixel work that could move to vertex or a texture, redundant samples, blending over large areas, and switches that multiply variants (materials-shaders, art-budgets-profiling). A measured cost over budget is a problem; a labelled estimate is a note.` },
+  { key: 'cost', text: `cost and permutations: budget ${plan.budget}; measured ${build.measured}; baseline before the change ${build.baseline || 'not measured'}; ${build.variants || 'unknown'} compiled variants (planned: ${plan.permutations}). Read the shader for pixel work that could move to vertex or a texture, redundant samples, blending over large areas, and switches that multiply variants (materials-shaders, art-budgets-profiling). A measured cost over budget is a problem, unless the baseline was already over budget and the shader\'s own delta is within its share: that is a note starting "baseline over budget:" naming the baseline, delta, share and the budget\'s owner. A labelled estimate is a note.` },
   { key: 'platforms', text: `platforms and fallbacks: targets ${strings(plan.targets).join(', ')}; tiers ${strings(plan.tiers).join('; ') || 'none'}; fallbacks ${strings(plan.fallbacks).join('; ') || 'none'}; compile results ${strings(build.compiles).join('; ')}. A "pending-ci" target is proven later by its CI job: check that job exists and builds this target, and read the shader for what that target is known to reject (feature, precision, sampler or resource limits); do not count pending as a failure. Every reachable target compiles, every tier gets its technique, every lower tier or renderer without the full effect gets its fallback, and nothing renders black, pink or untextured; precision and features the weakest target lacks are not used unguarded.` },
   { key: 'params', text: `artist parameters and materials: planned ${strings(plan.parameters).join('; ')}. Each parameter has a clear name, range and default; moving it across its whole range never breaks the look (no NaN, blown highlights, negative values); hidden values stay hidden; material instances that use it follow the project\'s colour-space and packing conventions (materials-shaders, pbr-reference.md).` },
 ]
@@ -310,15 +319,19 @@ reviews.forEach((r, i) => {
   }
 })
 
+// Over budget only because the baseline already was: a known risk for the
+// budget owner, in the result and the handoff notes, never a blocker.
+const knownRisks = notes.filter((n) => /^cost: baseline over budget:/i.test(n)).map((n) => 'budget already over before this shader (owned by the budget owner): ' + n.replace(/^cost: baseline over budget:\s*/i, ''))
 let frames = afterFrames
 if (problems.length) {
   phase('Fix')
   const fix = await agent(
     `Fix these review findings on the shader "${shader}" in one pass, in the planned files only, following the same skills and spec as the build:\n${spec}\n- ${problems.join('\n- ')}\n` +
-    'Recompile on every target, re-measure cost if the shader changed, run the project validator and tests, and' + (look.possible ? ` re-capture the after frames with the same command and names (${look.command || 'the project\'s capture command'}), checking size and content as the lookdev-capture skill says,` : '') + ' then commit. Return what you fixed, each finding that still fails (one line each), the new frames' + (look.possible ? '' : ' (none)') + ' and notes. ' + NOTES_RULE,
+    'Recompile on every target, re-measure cost (and its baseline on the base commit) if the shader changed, run the project validator and tests, and' + (look.possible ? ` re-capture the after frames with the same command and names (${look.command || 'the project\'s capture command'}), checking size and content as the lookdev-capture skill says,` : '') + ' then commit. A cost finding where the baseline (before) measurement already exceeds the budget and the shader\'s own delta is within its share is not failing: put it in baseline_over with the budget\'s owner (project profile), not in failing. Return what you fixed, each finding that still fails (one line each), baseline_over, the new frames' + (look.possible ? '' : ' (none)') + ' and notes. ' + NOTES_RULE,
     { schema: FIX, phase: 'Fix', label: 'fix' })
   if (!fix) return { status: 'blocked', stage: 'fix', open: problems, notes }
   strings(fix.notes).forEach((n) => notes.push('fix: ' + n))
+  strings(fix.baseline_over).forEach((b) => knownRisks.push('budget already over before this shader (owned by the budget owner): ' + b))
   if (strings(fix.failing).length) return { status: 'blocked', stage: 'fix', open: strings(fix.failing), notes }
   if (strings(fix.frames).length) frames = strings(fix.frames)
 }
@@ -346,7 +359,7 @@ else if (!docCheck.ok) return { status: 'blocked', stage: 'docs', open: (docChec
 
 phase('Handoff')
 const handoff = await agent(
-  `Hand off the shader "${shader}". ${where} Make sure every commit is pushed to the branch (${build.branch}); if no pull request is open for it, open a draft PR titled as a Conventional Commit${wp ? ` with "Refs: ${wp}" in the body` : ''}, with the effect, the cost against budget, the variant count, the technique and fallback per tier, the docs pages by Diataxis kind${pendingCi.length ? ', a "Pending CI" section listing ' + pendingCi.join('; ') + ' and saying these targets are confirmed only when those CI jobs pass on the head, before merge' : ''}${frames.length ? ', the before and after frames' : ''}${ambiguous.length ? ', the defaults taken for ambiguous points' : ''}${caveats.length ? ', and a "Known risks" section: ' + caveats.join('; ') : ''}. ` +
+  `Hand off the shader "${shader}". ${where} Make sure every commit is pushed to the branch (${build.branch}); if no pull request is open for it, open a draft PR titled as a Conventional Commit${wp ? ` with "Refs: ${wp}" in the body` : ''}, with the effect, the cost against budget, the variant count, the technique and fallback per tier, the docs pages by Diataxis kind${pendingCi.length ? ', a "Pending CI" section listing ' + pendingCi.join('; ') + ' and saying these targets are confirmed only when those CI jobs pass on the head, before merge' : ''}${frames.length ? ', the before and after frames' : ''}${ambiguous.length ? ', the defaults taken for ambiguous points' : ''}${caveats.length || knownRisks.length ? ', and a "Known risks" section: ' + caveats.concat(knownRisks).join('; ') : ''}${hookProposal ? '; say the ' + hookProposal : ''}. ` +
   'Do not mark it ready, request review or merge: the engineering-practices workflow named in the result does that. Follow the engineering-practices git-workflow skill. Run the project\'s tests and asset validator on the pushed head. Return the branch, PR URL, head commit SHA, and whether they pass on that head.',
   { schema: HANDOFF, phase: 'Handoff', label: 'handoff' })
 if (!handoff || !handoff.branch) return { status: 'blocked', stage: 'handoff', open: ['hand-off failed; the work is committed on ' + build.branch + ' but may not be pushed'], notes }
@@ -369,6 +382,8 @@ return {
   docs: docs.pages,
   undocumented: docs.undocumented,
   caveats,
+  knownRisks,
+  captureHookProposal: hookProposal,
   notes,
   ...(pendingCi.length ? {} : { handoff: {
     from: 'technical-artist:author-shader',
@@ -379,12 +394,12 @@ return {
     docs: docs.pages || [],
     undocumented: docs.undocumented || [],
     non_original: strings(build.non_original),
-    notes: caveats.concat(notes),
+    notes: caveats.concat(knownRisks, notes),
   } }),
   // A pending_ci run hands nothing off: the resume confirms the targets
   // and returns the handoff for the head CI proved.
   next: pendingCi.length
-    ? resumeNext(pendingCi, { pr: handoff.pr || '', branch: handoff.branch, docs: strings(docs.pages), undocumented: strings(docs.undocumented), notes: caveats.concat(notes), non_original: strings(build.non_original) }) + '; its done result names the next step'
+    ? resumeNext(pendingCi, { pr: handoff.pr || '', branch: handoff.branch, docs: strings(docs.pages), undocumented: strings(docs.undocumented), notes: caveats.concat(knownRisks, notes), non_original: strings(build.non_original) }) + '; its done result names the next step'
     : wp
     ? `ship it without rebuilding: /engineering-practices:deliver-package { wp: "${wp}", prior: <this result> }; after the code reviewer passes, /engineering-practices:land-pr { pr: "<the PR>" }`
     : `land it (it marks the PR ready, asks the code reviewer, polls CI and squash-merges once passed): /engineering-practices:land-pr ${handoff.pr ? `{ pr: "${handoff.pr}" }` : `{ branch: "${handoff.branch}" }`}`,

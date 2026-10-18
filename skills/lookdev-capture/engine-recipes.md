@@ -39,13 +39,15 @@ project pins, and verify the output as the skill says.
 
 ## Overlays drawn over every scene
 
-What the engine loads into every scene, and how to keep it out of a
-look-dev capture. Prefer a switch the overlays honour over editing the
-shipping configuration; check the frame afterwards, as the skill says.
+What the engine loads into every scene, and the capture hook that keeps
+it out of a look-dev capture (the skill's capture mode). Prefer a flag or
+environment variable the overlays honour over an override file, and never
+hand-edit the shipping configuration; check the frame afterwards, as the
+skill says.
 
-| Engine | What draws over every scene | Capture override |
+| Engine | What draws over every scene | Capture hook |
 |---|---|---|
-| Godot 4 | autoloads (`[autoload]` in `project.godot`) that add UI, fade or debug layers | a user argument after `--` (`godot ... <scene> -- --lookdev`), read with `OS.get_cmdline_user_args()`, that each overlay autoload checks to hide or free itself; or a capture override file that removes the autoload entries (check on the pinned version that the override really drops them) |
+| Godot 4 | autoloads (`[autoload]` in `project.godot`) that add UI, fade or debug layers | a user argument after `--` (`godot ... <scene> -- --lookdev`), read with `OS.get_cmdline_user_args()` (or an environment variable read with `OS.get_environment()`), that each overlay autoload checks to hide or free itself; or a capture override file that removes the autoload entries (check on the pinned version that the override really drops them) |
 | Unreal Engine | the GameMode's HUD class, widgets the GameInstance or a subsystem adds, on-screen debug messages and stats | a look-dev map with a GameMode override that has no HUD class; `-ExecCmds="DisableAllScreenMessages, stat none"` |
 | Unity | bootstrap objects from `RuntimeInitializeOnLoadMethod` or `DontDestroyOnLoad` (UI canvases, fade screens, debug consoles) | a command-line switch read with `System.Environment.GetCommandLineArgs()` that the bootstrap checks; or an editor method that renders only the look-dev scene's camera into a `RenderTexture` |
 

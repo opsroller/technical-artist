@@ -140,7 +140,7 @@ if (plan.blockers && plan.blockers.length) return { status: 'blocked', stage: 'p
 // ---------- Research (parallel, read only) ----------
 phase('Research')
 const areas = [
-  { key: 'engine', focus: 'the engine\'s rendering paths or backends and, for each, which lighting, global illumination, shadows, reflections, volumetrics, anti-aliasing, upscaling, post effects and particle features it offers and on which platforms; cite the engine\'s own documentation for the version in use' },
+  { key: 'engine', focus: 'the engine\'s rendering paths or backends and, for each, which lighting, global illumination, shadows, reflections, volumetrics, decals, anti-aliasing, 3D render scale and upscaling, post effects and particle features it offers and on which platforms; cite the engine\'s own documentation for the version in use' },
   { key: 'hardware', focus: 'the target platforms and their weakest supported devices: GPU class, memory, display resolution and refresh rate, thermal behaviour, browser limits for web builds; propose a tier set grouped by measured or documented capability, not by model name' },
   { key: 'look', focus: 'the art direction and references: the visual pillars, which rendering features the look depends on, what each tier must keep and what it may drop, and what gameplay must read (silhouette, value contrast, state changes) from the gameplay camera at the smallest screen' },
 ]
@@ -188,7 +188,7 @@ const DECISION = {
   },
   required: ['status', 'renderer', 'features', 'constraints'],
 }
-const question = `which rendering path and which lighting, shadow, reflection, volumetric, anti-aliasing, upscaling and post features each tier of "${scope}" gets`
+const question = `which rendering path and which lighting, shadow, reflection, volumetric, decal, anti-aliasing, 3D render scale and upscaling, and post features each tier of "${scope}" gets`
 const handoff = given
   ? `A renderer decision already exists: ${typeof given === 'string' ? given : JSON.stringify(given)}. Read it (open the file if this is a path) and return it in the answer shape with status "decided". Do not change it; if it does not cover a feature the look needs, list that under openQuestions and return status "pending".`
   : 'This decision belongs to the graphics-programmer, not to you. Hand it over:\n' +
@@ -230,8 +230,8 @@ const TIERS = {
         required: ['name', 'devices', 'fps', 'frameMs', 'resolution', 'look'],
       },
     },
-    matrix: { type: 'array', items: { type: 'string' }, description: 'one row per rendering feature: feature, then setting per tier, as decided by the graphics-programmer' },
-    artBudgets: { type: 'array', items: { type: 'string' }, description: 'one row per tier: triangles, texture memory, draw calls, materials, overdraw, effect counts' },
+    matrix: { type: 'array', items: { type: 'string' }, description: 'one row per rendering feature: feature, then setting per tier, as decided by the graphics-programmer; always includes a 3D render scale row and a decals row' },
+    artBudgets: { type: 'array', items: { type: 'string' }, description: 'one row per tier: triangles, texture memory, draw calls, materials, overdraw, effect counts, decal counts' },
   },
   required: ['tiers', 'matrix', 'artBudgets'],
 }
@@ -239,7 +239,7 @@ const tierSet = await agent(
   `You are the technical-artist setting the quality tiers for "${scope}". Follow art-budgets-profiling. Research:\n${JSON.stringify(research, null, 2)}\n` +
   `Renderer decision from the graphics-programmer (take it as given; do not change features or costs):\n${JSON.stringify(decision, null, 2)}\n` +
   'For each tier write its weakest example device, target frame rate, frame budget in ms with its CPU and GPU split and some headroom, output resolution and render scale, and its look in a sentence. ' +
-  'Turn the decision into a feature matrix row per feature. Derive art budgets per tier from the content share of the frame budget and the decision\'s constraints; label any number you did not measure as an estimate. Do not edit files yet.',
+  'Turn the decision into a feature matrix row per feature. The matrix always has a 3D render scale row (scale of the 3D view per tier, with UI kept at output resolution, and any upscaler) and a decals row (on or off, max visible count and fade distance per tier); if the decision does not cover one, write the row as "not decided" and name it as a gap. Derive art budgets per tier from the content share of the frame budget and the decision\'s constraints; label any number you did not measure as an estimate. Do not edit files yet.',
   { schema: TIERS, phase: 'Tiers', label: 'tiers' },
 )
 if (!tierSet) return { status: 'blocked', stage: 'tiers', open: ['tier agent returned nothing'], decision }
@@ -286,7 +286,7 @@ const REVISED = {
 let target = { tiers: tierSet.tiers, matrix: tierSet.matrix, artBudgets: tierSet.artBudgets, criteria: readability.criteria }
 const reviewPrompt = (t) =>
   `You are a second technical-artist reviewing the visual target for "${scope}". Renderer decision: ${JSON.stringify(decision)}\nTarget:\n${JSON.stringify(t, null, 2)}\n` +
-  'Check: the matrix matches the renderer decision; art budgets fit inside each tier\'s frame budget; every tier has a weakest device and a measurable frame target; every feature off on a tier has a fallback that keeps readability; every criterion has a check and a threshold a reviewer can apply; no requirement names a vendor or tool the project does not use. Report problems; do not edit files.'
+  'Check: the matrix matches the renderer decision and has 3D render scale and decals rows; art budgets fit inside each tier\'s frame budget; every tier has a weakest device and a measurable frame target; every feature off on a tier has a fallback that keeps readability; every criterion has a check and a threshold a reviewer can apply; no requirement names a vendor or tool the project does not use. Report problems; do not edit files.'
 let review = await agent(reviewPrompt(target), { schema: REVIEW, phase: 'Review', label: 'review:1', independent: true })
 if (review && !review.ok && review.problems && review.problems.length) {
   const revised = await agent(

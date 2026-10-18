@@ -52,19 +52,19 @@ Plan. Every asset in `assets` must belong to a unit.
 
 | Field | Meaning |
 |---|---|
-| `units[]` | `id`, `method`, `assets`, `kind`, `budget`, `writes`, `command` (regenerates every output), `tierVariants`, `notes` |
+| `units[]` | `id`, `method`, `assets`, `kind`, `budget`, `writes`, `command` (regenerates every output), `tool` (the DCC or tool and whether it ran headless when tried in Plan), `substitute` (the procedural or scripted tool used instead when the named one cannot run headless; `method` is then `procedural`), `tierVariants`, `notes` |
 | `tiers` | Quality tiers from the project's visual target, lowest first; empty if none |
 | `generatedOutputs` | `commit`: generated files are committed. `build`: only the generator and inputs are committed; the build makes the outputs and version control ignores them. From the project rule, else `build` for large or binary outputs. |
-| `lookdev` | `possible`, `frames` (scene / camera / renderer or tier), `command`, `outDir`, `why` |
+| `lookdev` | `possible`, `frames` (scene / camera / renderer or tier), `command`, `commandFound` (whether the project already has a capture command; when not, the Before step builds one from the lookdev-capture generic recipe), `outDir`, `overlays`, `hook` (the project's capture hook for capture mode: flag, environment variable or override file), `hookProposal` (with no hook, the small separate change that adds one and who owns that code; shipping configuration is never hand-edited), `why` |
 | `docKinds`, `blockers`, `caveats` | Doc plan; what stops the work; risks that do not |
 
 ## Phases
 
 | Phase | What happens |
 |---|---|
-| Plan | Conventions, make units with disjoint owned paths, budgets, tiers and tier variants, generated-output policy, look-dev frames, doc kinds. |
-| Before | Captures the look-dev frames on the current state, with greyscale copies. Skipped when capture is off or not possible. |
-| Make | One agent per make unit. Writes only its own paths; generated units run their command twice and report whether outputs are byte-identical. Returns manifest lines, provenance records and non-original items. |
+| Plan | Conventions, make units with disjoint owned paths, budgets, tiers and tier variants, generated-output policy, look-dev frames and capture hook, doc kinds. Tries each unit's tool headless and plans a procedural fallback for any that cannot run. |
+| Before | Captures the look-dev frames on the current state in capture mode, with greyscale copies; builds a capture command from the lookdev-capture generic recipe when the project has none. Skipped when capture is off or not possible (noted as pending, with why). |
+| Make | One agent per make unit. Writes only its own paths; generated units run their command twice and report whether outputs are byte-identical. Writes the engine's import settings next to every texture. A unit with a `substitute` uses that tool and records the substitution in `substitution` and its provenance records. Returns manifest lines, provenance records and non-original items. |
 | Check | `apply` writes all manifest and provenance lines once. Then an independent, read-only check per round: budgets, asset checklist, family consistency, the texture and material rules below, regeneration and the generated-output policy. Up to 3 rounds with a fix step between. |
 | After | Captures the same frames again; an independent `look` review compares before and after against the briefs and readability criteria. One `look-fix` and re-capture round when it finds problems. |
 | Docs | Do: write the planned Diataxis pages. Independent check: one kind per page, title patterns, links; a fix and recheck when it finds problems. |
@@ -79,16 +79,17 @@ Applied by every make unit and every check round:
 | Colour space | Base colour and emissive sRGB; normal, roughness, metallic, AO, height and packed maps linear; read from import settings or the material. |
 | PBR values | Measured by script over the outputs: dielectric base colour in range, raw metal bright, metallic binary, roughness not constant, no baked light or AO in base colour, engine normal convention, constant maps replaced by parameters. |
 | Tier variants | Every higher-tier variant has a base variant every target loads; lower-tier exports leave higher-tier files out; texture memory per tier within budget. |
+| Import settings | Every texture has the engine's import settings written next to it by its generator or export step: mipmaps for 3D textures, compression per map type and platform, colour space by role, normal-map flag on normal maps. The check reads them back and fails a texture left on engine defaults. |
 
 ## Outputs (`status`)
 
 | Status | Meaning |
 |---|---|
-| `done` | Returns `results`, `tiers`, `generatedOutputs`, `before`, `after`, `docs`, `undocumented`, `caveats`, `notes`, `handoff` and `next`. |
+| `done` | Returns `results`, `tiers`, `generatedOutputs`, `before`, `after`, `docs`, `undocumented`, `caveats`, `substitutions` (tools swapped because the named one cannot run headless), `captureHookProposal` (the proposed capture hook change, or empty), `notes`, `handoff` and `next`. |
 | `done-docs-unverified` | As `done`, but the docs check returned nothing. |
 | `blocked` | Returns `stage` (`plan`, `make`, `check`, `after`, `docs` or `handoff`) and `open` (or `blockers`). |
 
-`notes` collects what is informational: frames not captured and why,
+`notes` collects what is informational: a capture pending and why, a proposed capture hook, tool substitutions (also in the PR's "Tool substitutions" section),
 a generator that did not regenerate byte-identically, look review notes.
 
 ## Handoff

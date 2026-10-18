@@ -125,7 +125,8 @@ const DOCS_FRAGMENT = 'Classify every user-visible change in this work with the 
 const MATERIAL_RULES = 'For texture sets and materials (materials-shaders skill and its pbr-reference.md): ' +
   '1) colour space: colour maps (base colour, emissive) sRGB, every data map (normal, roughness, metallic, AO, height, masks, packed maps) linear, checked in the import settings or the material, not assumed; ' +
   '2) PBR value plausibility, measured with a script or the project validator over every pixel or a sample, not by eye: dielectric base colour within the reference range, raw metal base colour bright, metallic essentially binary, roughness not a constant map, no lighting or AO baked into base colour, normal map in the engine\'s convention, constant maps replaced by parameters; ' +
-  '3) quality-tier variants: every variant for a higher tier has a base variant every target can load, lower-tier exports leave the higher-tier files out, and each tier\'s texture memory is within its budget.'
+  '3) quality-tier variants: every variant for a higher tier has a base variant every target can load, lower-tier exports leave the higher-tier files out, and each tier\'s texture memory is within its budget; ' +
+  '4) engine import settings: every texture has the engine\'s import settings written next to it by whatever made it (the generator, or the authored export step), never left to engine defaults: mipmaps on for 3D textures, compression per map type and platform, colour space (sRGB flag) by map role, normal-map flag on normal maps; each setting is read back from the file and checked against the map\'s role.'
 
 const strings = (xs) => (Array.isArray(xs) ? xs.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim()) : [])
 const notes = []
@@ -149,6 +150,8 @@ const PLAN = {
           budget: { type: 'string', description: 'per asset: tris per LOD, texture set size and memory per tier, materials' },
           writes: { type: 'array', items: { type: 'string' }, description: 'files or directories only this unit may write (generator script, its inputs, its outputs)' },
           command: { type: 'string', description: 'for procedural or generator-run: the command that regenerates every output' },
+          tool: { type: 'string', description: 'the DCC or tool this unit runs, and whether it ran headless here when you tried its batch or background command now (e.g. "<tool> <version>: headless ok" or "<tool>: cannot run headless here: <why>")' },
+          substitute: { type: 'string', description: 'when the named tool cannot run headless here: the procedural or scripted tool that does run and is used instead (method becomes procedural); empty otherwise' },
           tierVariants: { type: 'array', items: { type: 'string' }, description: 'each "tier: what differs (file, texture size, shader feature)", empty if one variant serves every tier' },
           notes: { type: 'string' },
         },
@@ -163,7 +166,11 @@ const PLAN = {
       properties: {
         possible: { type: 'boolean', description: 'the project can render a look-dev scene headless in this environment' },
         frames: { type: 'array', items: { type: 'string' }, description: 'each "scene / camera / renderer or tier": what is captured' },
-        command: { type: 'string', description: 'the capture command (lookdev-capture skill), with resolution and frame' },
+        command: { type: 'string', description: 'the capture command (lookdev-capture skill), with resolution and frame; empty when the project has none' },
+        commandFound: { type: 'boolean', description: 'true only if the project already has a capture command you found; false means the Before step builds one from the lookdev-capture generic recipe' },
+        overlays: { type: 'string', description: 'what the project draws over every scene (autoloads or global singletons with UI, fades, debug HUDs), or "none"' },
+        hook: { type: 'string', description: 'the capture hook the project provides for capture mode (command-line flag, environment variable or override file) that hides UI and overlays, or "none"' },
+        hookProposal: { type: 'string', description: 'when overlays exist and hook is "none": the small separate change that adds a hook and who owns that code (project profile); otherwise empty' },
         outDir: { type: 'string', description: 'where frames go, and whether the project commits them' },
         why: { type: 'string', description: 'when not possible: why' },
       },
@@ -181,9 +188,10 @@ const plan = await agent(
   (generator ? `An existing generator is named for this batch: ${generator}. Read it first; plan it as one generator-run unit for every asset it can produce.\n` : '') +
   'Read the project profile for conventions and budgets (if budgets are missing, propose them per art-budgets-profiling and list that as a doc change). ' +
   'Split the batch into make units. A unit is one hand-made asset, one procedurally generated asset, or one generator run that writes several assets at once: texture sets and materials that one script produces are ONE unit, never one unit per output. Prefer one shared generator for variants of one idea. Give each unit the files or directories only it may write, so no two units write the same file, and for generated units the one command that regenerates every output. ' +
+  'Detect early whether each unit\'s DCC or tool runs headless in this environment: try its batch or background command now (a version or no-op script run) and record the result in tool. If a named tool cannot run headless here, fall back to procedural or scripted generation in a tool that does run (realtime-asset-authoring, "When the DCC tool cannot run headless"): set method to procedural, name the tool used in substitute, and keep the same output contract. ' +
   'Read the project\'s quality tiers from its visual target (visual-target workflow) if it has one, and list per unit what differs per tier. ' +
   'Read the project rule on whether generated files are committed; if it has none, choose "build" when the outputs are large or binary (only the generator and its inputs are committed and the build makes the outputs) and "commit" otherwise, and say which you took in generatedWhy. ' +
-  'Plan the look-dev frames (lookdev-capture skill): the project\'s look-dev scene and the gameplay camera, on each renderer or tier the project ships, and the headless capture command; set possible to false with the reason if the project or environment cannot render. ' +
+  'Plan the look-dev frames (lookdev-capture skill): the project\'s look-dev scene and the gameplay camera, on each renderer or tier the project ships, and the headless capture command. Detect whether the project has a capture command and set commandFound; never assume one exists; with none, the Before step builds one from the skill\'s generic recipe. Set possible to false with the reason only if the project or environment cannot render, and the capture is then pending. Find what the project draws over every scene and the capture hook it provides for capture mode (flag, environment variable or override file); if there is none, write the small separate change that adds one and who owns that code in hookProposal, and never plan to hand-edit shipping configuration. ' +
   'List which documentation kinds this batch affects using the Diataxis compass (e.g. a new generator needs reference + how-to; new budgets need reference + explanation). Only what stops the work goes in blockers; risks go in caveats. Do not create assets yet.',
   { schema: PLAN, phase: 'Plan', label: 'plan' },
 )
@@ -206,20 +214,30 @@ const caveats = strings(plan.caveats)
 const tiers = strings(plan.tiers)
 const look = plan.lookdev || { possible: false }
 const capturing = wantCapture && !!look.possible
-if (wantCapture && !look.possible) notes.push('look-dev frames not captured: ' + (look.why || 'the plan found no way to render headless'))
+if (wantCapture && !look.possible) notes.push('look-dev capture pending: ' + (look.why || 'the plan found no way to render headless'))
+// A missing capture hook is someone else's code: propose it, do not edit shipping config.
+const hookProposal = capturing && look.hookProposal && String(look.hookProposal).trim() ? 'capture hook proposed as a separate change: ' + String(look.hookProposal).trim() : ''
+if (hookProposal) notes.push(hookProposal)
+// A tool swapped because the named one cannot run headless is recorded in
+// the handoff here and in each provenance record by its make unit.
+const substitutions = units.filter(u => u.substitute && String(u.substitute).trim()).map(u => `${u.id}: ${u.tool || 'named tool'} replaced by ${String(u.substitute).trim()}`)
+substitutions.forEach(x => notes.push('tool substituted (named tool cannot run headless here): ' + x))
 const GENERATED = plan.generatedOutputs === 'build'
   ? 'Generated outputs are NOT committed: commit the generator and its inputs only, make sure version control ignores the outputs, and make sure the project\'s build (or its asset step) runs the generator before anything that reads the outputs (validator, import, export).'
   : 'Generated outputs are committed next to the generator and its inputs.'
 log(`${units.length} make units for ${assets.length} assets; tiers: ${tiers.join(', ') || 'none'}; generated outputs: ${plan.generatedOutputs}; look-dev: ${capturing ? 'captured' : 'not captured'}`)
 
 // ---------- Before ----------
-const FRAMES = { type: 'object', properties: { frames: { type: 'array', items: { type: 'string' }, description: 'each "<file> : scene / camera / renderer or tier, size WxH"' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['frames'] }
-const captureBrief = (when) => `Capture the look-dev frames ${when}, following the technical-artist lookdev-capture skill exactly: ${JSON.stringify(look.frames || [])} with ${look.command || 'the project\'s headless render command'}, into ${look.outDir || 'a frames directory the project profile names'}. Name each file <scene>-<camera>-<renderer or tier>-${when === 'before the change' ? 'before' : 'after'}. ${when === 'before the change' ? 'Render from the base commit (a separate worktree of the base branch) so the frames show the state before this work, even if the working branch already has changes. ' : 'Render from the working tree with the same command, size, frame and driver as the before frames. '} Check every frame is the requested size and is not black, blank or captured before the scene settled; re-capture any that fail. Write a greyscale copy of each. Change no project files except the frames. Return the frame files with what each shows, and anything you could not capture in problems.`
+const FRAMES = { type: 'object', properties: { command: { type: 'string', description: 'the capture command used, built from the lookdev-capture generic recipe if the project had none' }, frames: { type: 'array', items: { type: 'string' }, description: 'each "<file> : scene / camera / renderer or tier, size WxH"' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['frames'] }
+const captureCmd = (when, built) => built ? built : look.commandFound && look.command ? look.command
+  : when === 'before the change' ? 'no capture command (the project has none): build one from the skill\'s generic capture command recipe as a script outside shipping configuration, use it, and return it in command; if it cannot be built here, return no frames and say why in problems'
+  : 'the capture command the before step built'
+const captureBrief = (when, built) => `Capture the look-dev frames ${when}, following the technical-artist lookdev-capture skill exactly: ${JSON.stringify(look.frames || [])} with ${captureCmd(when, built)}, into ${look.outDir || 'a frames directory the project profile names'}. Name each file <scene>-<camera>-<renderer or tier>-${when === 'before the change' ? 'before' : 'after'}. Capture in capture mode through the project\'s capture hook (${look.hook && look.hook !== 'none' ? look.hook : 'none exists: do not hand-edit shipping configuration; use an override that changes no committed file if the engine allows one, otherwise capture with the overlays and say so'}) so overlays (${look.overlays || 'find them: autoloads, global singletons, persistent UI'}) stay out of the frame. ${when === 'before the change' ? 'Render from the base commit (a separate worktree of the base branch) so the frames show the state before this work, even if the working branch already has changes. ' : 'Render from the working tree with the same command, size, frame and driver as the before frames. '} Check every frame is the requested size and is not black, blank or captured before the scene settled; re-capture any that fail. Write a greyscale copy of each. Change no project files except the frames. Return the capture command used, the frame files with what each shows, and anything you could not capture in problems.`
 let before = null
 if (capturing) {
   phase('Before')
   before = await agent(captureBrief('before the change'), { schema: FRAMES, phase: 'Before', label: 'capture:before' })
-  if (!before || !strings(before.frames).length) notes.push('before frames missing: ' + (before ? strings(before.problems).join('; ') : 'capture step returned nothing'))
+  if (!before || !strings(before.frames).length) notes.push('look-dev capture pending, before frames missing: ' + (before ? strings(before.problems).join('; ') : 'capture step returned nothing'))
 }
 
 // ---------- Make ----------
@@ -236,12 +254,13 @@ const MADE = {
           name: { type: 'string' },
           files: { type: 'array', items: { type: 'string' } },
           measured: { type: 'string', description: 'tris per LOD, verts, texture memory per tier, materials, file size' },
-          maps: { type: 'array', items: { type: 'string' }, description: 'each "<file>: <role> <sRGB|linear> <size>" for texture maps' },
+          maps: { type: 'array', items: { type: 'string' }, description: 'each "<file>: <role> <sRGB|linear> <size>; import settings <settings file>: mipmaps, compression, colour space, normal-map flag" for texture maps' },
         },
         required: ['name', 'files', 'measured'],
       },
     },
     source: { type: 'string', description: 'DCC source path, or generator path + inputs + seed + command' },
+    substitution: { type: 'string', description: 'when the planned tool was replaced because it cannot run headless here: "<named tool> -> <tool used>: <why>", also stated in each provenance record; empty otherwise' },
     regenerates: { type: 'string', description: 'for generated units: "identical" when a second run of the command gave byte-identical outputs, else what differed; "n/a" for authored' },
     manifestLines: { type: 'array', items: { type: 'string' } },
     provenanceRecords: { type: 'array', items: { type: 'string' } },
@@ -257,16 +276,19 @@ const made = await pipeline(units, u => agent(
   `Conventions: ${plan.conventions}\nBudget: ${u.budget}\n` +
   (tiers.length ? `Quality tiers (lowest first): ${tiers.join(', ')}. Tier variants for this unit: ${strings(u.tierVariants).join('; ') || 'one variant for every tier'}.\n` : '') +
   `Follow the technical-artist skills ${skillFor(u)}, materials-shaders, lods-optimization and asset-provenance, and the checklist in realtime-asset-authoring/asset-checklist.md.\n` +
+  (u.substitute ? `The planned tool cannot run headless here (${u.tool || 'named tool'}); generate with ${u.substitute} instead, keep the same output contract, and record the substitution in substitution and in every provenance record for this unit.\n` : '') +
   (u.method === 'authored' ? '' : `Regenerate with: ${u.command || 'a single command you add and report'}. Run it twice and compare the outputs byte for byte; report the result in regenerates. ${GENERATED}\n`) +
   `Write files ONLY under: ${strings(u.writes).join(', ')}. Do NOT edit any shared file: not the manifest, not the provenance log, not shared materials or shaders. ` +
   'Instead return the exact manifest lines and one provenance record per asset for the Check step to apply, and list every third-party item you used in non_original. ' +
   MATERIAL_RULES + ' ' +
-  'Run the project validator on your files, and report measured numbers per asset (per tier where they differ) and any open issues honestly.',
+  'Write the engine\'s import settings next to every texture you write (from the generator, or the export step for authored maps) and list each in maps. Run the project validator on your files, and report measured numbers per asset (per tier where they differ) and any open issues honestly.',
   { schema: MADE, phase: 'Make', label: `make:${u.id}` },
 ))
 const results = units.map((u, i) => made[i] ? made[i] : { unit: u.id, assets: strings(u.assets).map(n => ({ name: n })), failed: true })
 const failed = results.filter(r => r.failed).map(r => r.unit)
 if (failed.length === results.length) return { status: 'blocked', stage: 'make', blockers: ['every make agent failed'], failed }
+results.filter(r => !r.failed && r.substitution && String(r.substitution).trim() && !substitutions.some(x => x.startsWith(r.unit + ':')))
+  .forEach(r => notes.push(`tool substituted (named tool cannot run headless here): ${r.unit}: ${r.substitution}`))
 results.filter(r => !r.failed && r.regenerates && !/^(identical|n\/a)$/i.test(String(r.regenerates).trim()))
   .forEach(r => notes.push(`${r.unit}: regeneration not byte-identical: ${r.regenerates}`))
 
@@ -309,7 +331,7 @@ for (let round = 1; round <= 3; round++) {
     'Using the skills realtime-asset-authoring (asset-checklist.md), materials-shaders, art-budgets-profiling and asset-provenance: check each asset against its budget and the checklist, run the project validator, and check the set as one family (consistent scale, texel density, style; distinct silhouette and value for gameplay objects from the gameplay camera). ' +
     MATERIAL_RULES + ' ' +
     'For generated units, run the regenerate command into a scratch directory or a separate worktree, never over the working tree, and diff its outputs against the working tree; confirm the generated-output policy holds (ignored and built, or committed). ' +
-    'Also check the shared manifest and provenance log entries for these assets. Read-only: do not edit anything; list every problem per asset. Mark an asset "unverified" if you could not check it, never drop it. Failed make units: ' + JSON.stringify(failed),
+    'Read back the engine import settings written next to every texture (rule 4) and fail any texture left on engine defaults or with a setting that does not match its role. Check that a substituted tool is recorded in the asset\'s provenance record. Also check the shared manifest and provenance log entries for these assets. Read-only: do not edit anything; list every problem per asset. Mark an asset "unverified" if you could not check it, never drop it. Failed make units: ' + JSON.stringify(failed),
     { schema: CHECK, phase: 'Check', label: `check:${round}`, independent: true },
   )
   if (!review) { open = allNames.map(n => `${n}: unverified (checker returned nothing)`); continue }
@@ -337,7 +359,7 @@ if (capturing) {
   phase('After')
   let lookOpen = []
   for (let round = 1; round <= 2; round++) {
-    after = await agent(captureBrief('after the change'), { schema: FRAMES, phase: 'After', label: `capture:after:${round}` })
+    after = await agent(captureBrief('after the change', before && before.command), { schema: FRAMES, phase: 'After', label: `capture:after:${round}` })
     if (!after || !strings(after.frames).length) { lookOpen = ['after frames missing: ' + (after ? strings(after.problems).join('; ') : 'capture step returned nothing')]; break }
     const judged = await agent(
       `You are a technical-artist giving an independent look review of the asset family "${family}", which you did not make. Do not edit anything.\n` +
@@ -386,7 +408,7 @@ phase('Handoff')
 const HANDOFF = { type: 'object', properties: { branch: { type: 'string' }, pr: { type: 'string' }, head_sha: { type: 'string' }, tests_pass: { type: 'boolean' }, problem: { type: 'string' } }, required: ['branch', 'tests_pass'] }
 const handoff = await agent(
   `Hand off the asset batch "${family}". ${where} Commit everything this run changed with Conventional Commits (engineering-practices git-workflow skill), following the generated-output policy: ${GENERATED} ` +
-  `Push the branch; if no pull request is open for it, open a draft PR titled as a Conventional Commit${wp ? ` with "Refs: ${wp}" in the body` : ''}, with the measured numbers per asset against budget, the tier variants, the docs pages by Diataxis kind${after ? ' and the before and after frames' : ''}${caveats.length ? ', and a "Known risks" section: ' + caveats.join('; ') : ''}. ` +
+  `Push the branch; if no pull request is open for it, open a draft PR titled as a Conventional Commit${wp ? ` with "Refs: ${wp}" in the body` : ''}, with the measured numbers per asset against budget, the tier variants, the docs pages by Diataxis kind${after ? ' and the before and after frames' : ''}${notes.some(n => n.startsWith('tool substituted')) ? ', a "Tool substitutions" section: ' + notes.filter(n => n.startsWith('tool substituted')).join('; ') : ''}${hookProposal ? ', the ' + hookProposal : ''}${caveats.length ? ', and a "Known risks" section: ' + caveats.join('; ') : ''}. ` +
   'Do not mark it ready, request review or merge: the engineering-practices workflow named in the result does that. Run the project\'s tests and asset validator on the pushed head. Return the branch, PR URL, head commit SHA, and whether the tests and validator pass on that head.',
   { schema: HANDOFF, phase: 'Handoff', label: 'handoff' },
 )
@@ -404,6 +426,8 @@ return {
   docs: docs.pages,
   undocumented: docs.undocumented,
   caveats,
+  substitutions: notes.filter(n => n.startsWith('tool substituted')),
+  captureHookProposal: hookProposal,
   notes,
   handoff: {
     from: 'technical-artist:asset-batch',

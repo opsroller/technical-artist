@@ -63,6 +63,28 @@ This skill is the authored (hand-made) path; for generator scripts see
 12. **Record.** Manifest entry, provenance record (`asset-provenance`), source
     file committed or stored where the profile says.
 
+## When the DCC tool cannot run headless
+
+An agent or CI job can only use a DCC that runs from the command line in
+its environment (background or batch mode, no GUI session, a licence it
+can use).
+
+1. **Detect it early.** Before planning the asset, run the named tool's
+   batch or background command (a version check or a no-op script). If it
+   is missing, needs a display or a licence server, or fails, say so then,
+   not after the blockout.
+2. **Fall back to a tool that does run.** Make the asset by procedural or
+   scripted generation (`procedural-assets`) in a tool that runs here: a
+   scripting language writing the project's mesh and image formats, a
+   node-graph tool with a command line, or another DCC that runs
+   headless. Keep the same output contract: scale, pivot, names, budget,
+   texture roles and import settings.
+3. **Record the substitution.** In the handoff (PR body and notes: which
+   tool was named, which was used, why) and in each asset's provenance
+   record (`asset-provenance`: tool and version actually used). Keep the
+   generator and its command so the asset can be remade, or remade later
+   in the named tool when it can run.
+
 ## Decision rules
 
 - Detail that changes the silhouette at gameplay distance: geometry. Detail that
@@ -89,5 +111,7 @@ procedure → how-to. See the agent's documentation step.
 - Lighting or AO painted into base colour.
 - Exported with unapplied transforms, wrong up axis or leftover history.
 - Asset that only its author can re-export.
+- A named DCC found not to run headless only after work started, or
+  swapped for another tool without saying so in handoff and provenance.
 
 Full pre-import checklist: [asset-checklist.md](asset-checklist.md).

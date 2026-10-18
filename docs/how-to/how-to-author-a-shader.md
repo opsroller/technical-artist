@@ -29,6 +29,10 @@ with the `author-shader` workflow.
    - `status: "done"`: the shader, materials, docs and frames are on a
      pushed branch with a draft PR; `measured` and `variants` give its
      cost.
+     `knownRisks` lists any budget that was already over before this
+     shader while its own cost stayed within its share: pass it to the
+     budget's owner. `captureHookProposal`, when set, is the small change
+     to ask the overlay code's owner for so captures can hide the UI.
    - `status: "pending_ci"`: done, except the targets in `pending_ci`,
      which this machine cannot compile for (for example Metal from a
      Linux host) and which a named CI job proves. Wait for CI on the PR,
