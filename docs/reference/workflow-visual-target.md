@@ -33,9 +33,9 @@ visual-target  args: { scope: "the whole game", look: "docs/explanation/art-dire
 | Plan | 1 | no | Inputs (art direction, camera, smallest screen, platforms, readability needs), what already exists, engine, doc kinds. |
 | Research | 3, parallel | no | `engine`: rendering paths and features per platform, from the engine's docs. `hardware`: weakest devices and a tier proposal. `look`: pillars, features the look needs, what must read. Failed areas are listed in `unresearched`. |
 | Renderer | 1 | no | Hand-off. Runs `/graphics-programmer:renderer-decision` when available, otherwise asks the graphics-programmer and stops with `waiting-on-graphics-programmer`. With `renderer` given, reads that decision instead. Never decides the renderer itself. |
-| Tiers | 1 | no | Per tier: weakest device, fps, frame budget (ms, CPU/GPU split, headroom), resolution and render scale, look. Feature matrix from the decision. Art budgets per tier; unmeasured numbers labelled as estimates. |
+| Tiers | 1 | no | Per tier: weakest device, fps, frame budget (ms, CPU/GPU split, headroom), resolution and render scale, look. Feature matrix from the decision, always with a 3D render scale row (UI stays at output resolution) and a decals row (count and fade distance); a row the decision does not cover is marked not decided. Art budgets per tier, including decal counts; unmeasured numbers labelled as estimates. |
 | Readability | 1 | no | Acceptance criteria, each with `id`, tiers, a check and a pass threshold; frame-time criteria per tier. |
-| Review | 1 to 3 | no | `review:1` checks the matrix against the decision, budgets against frame budgets, fallbacks, testable criteria. Problems get one `revise:1` and a `review:2`. |
+| Review | 1 to 3 | no | `review:1` checks the matrix against the decision and for the render scale and decals rows, budgets against frame budgets, fallbacks, testable criteria. Problems get one `revise:1` and a `review:2`. |
 | Packages | 1 | the work-package plan, if the profile allows | Follow-up packages with role and testable done-when; written to the plan or sent to the project-manager. |
 | Docs | 2 | yes | Do: reference ("Visual target and quality tiers"), explanation ("About the visual target"), a how-to if the check will be repeated. Check: one kind per page. |
 

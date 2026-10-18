@@ -41,13 +41,18 @@ locations, procedural fill around them.
    project's build step) without a GUI session, so CI or another agent can
    regenerate everything. The DCC or tool is whatever the profile names (e.g. a
    DCC in background mode, a node-graph tool, or plain code writing a mesh
-   format).
+   format). If the named tool cannot run headless here, use the fallback in
+   `realtime-asset-authoring` ("When the DCC tool cannot run headless").
 6. **Bake to real-time output.** Generate at authoring time; ship baked meshes and
    textures unless the project explicitly does runtime generation. Produce LODs,
-   collision and masks in the same run (`lods-optimization`).
+   collision and masks in the same run (`lods-optimization`). Write the
+   engine's import settings next to every texture in the same run
+   (mipmaps, compression, colour space or sRGB flag, normal-map flag), so
+   engine defaults never apply silently.
 7. **Validate in the generator.** Assert triangle counts, texture sizes,
-   bounds, manifold geometry and names against the budget before writing; fail
-   loudly with an actionable message.
+   bounds, manifold geometry, names and texture import settings against the
+   budget and map roles before writing; fail loudly with an actionable
+   message.
 8. **Lock before hand edits.** If artists hand-edit generated output, mark it as
    locked/baked so regeneration cannot silently overwrite their work, or move
    the edit into a parameter.
@@ -84,6 +89,9 @@ non-obvious reason. Updated parameters → update the reference.
 ## Failure modes
 
 - Unseeded randomness; output differs between machines or runs.
+- Textures written without import settings, so engine defaults (colour
+  map as linear, no mipmaps, normal map compressed as colour) apply
+  silently.
 - Tool knowledge held by one person; no how-to.
 - Generator that only runs inside an interactive session.
 - Regeneration wiping manual edits.

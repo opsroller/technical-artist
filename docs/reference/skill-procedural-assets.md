@@ -16,9 +16,9 @@
 2. One tool per job
 3. Expose art-level parameters
 4. Deterministic (explicit seeds)
-5. Headless and scripted
-6. Bake to real-time output
-7. Validate in the generator
+5. Headless and scripted (fallback when the named tool cannot run headless: realtime-asset-authoring)
+6. Bake to real-time output, with the engine's import settings written next to every texture
+7. Validate in the generator, import settings included
 8. Lock before hand edits
 9. Check the family
 10. Record

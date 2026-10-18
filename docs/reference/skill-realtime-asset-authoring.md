@@ -25,6 +25,11 @@
 11. Check in engine
 12. Record
 
+The skill also covers what to do when the DCC tool cannot run headless:
+detect it early with the tool's batch command, fall back to procedural or
+scripted generation in a tool that runs, and record the substitution in
+the handoff and the provenance record.
+
 ## Supporting files
 
-- `asset-checklist.md`: pre-import checklist (read and scale, geometry, UVs and textures, material, pipeline)
+- `asset-checklist.md`: pre-import checklist (read and scale, geometry, UVs and textures including engine import settings, material, pipeline)

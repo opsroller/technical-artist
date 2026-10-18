@@ -8,8 +8,11 @@ for you.
 
 1. **List the frames**: the look-dev scene and the gameplay camera, once
    per renderer or quality tier the project ships, at one size.
-2. **Find the capture command** for the project's engine in the skill's
-   [engine recipes](../../skills/lookdev-capture/engine-recipes.md). On a
+2. **Find the capture command.** Use the project's own if it has one
+   (profile, scripts, CI jobs). If not, build one from the skill's
+   capture command recipe and the flags for the project's engine in the
+   [engine recipes](../../skills/lookdev-capture/engine-recipes.md); if it
+   cannot be built on this machine, note the capture as pending and why. On a
    machine without a GPU, wrap it in a virtual display and point it at a
    software driver, for example on Linux:
 
@@ -21,13 +24,15 @@ for you.
        res://lookdev/LD_Neutral.tscn
    ```
 
-3. **Keep global overlays out.** If the project loads UI, a fade layer
+3. **Capture in capture mode.** If the project loads UI, a fade layer
    or a debug overlay into every scene (autoloads, global singletons),
-   capture with the override the project documents: a capture flag the
-   overlays honour, or a capture configuration without them. If there is
-   none, add a flag with the overlays' owner and document it. The skill's
+   capture through the capture hook the project provides: a command-line
+   flag or environment variable the overlays honour, or an override file
+   without them. Do not hand-edit the shipping configuration. If there is
+   no hook, propose one to whoever owns the overlay code as a small
+   separate change, documented as reference. The skill's
    [engine recipes](../../skills/lookdev-capture/engine-recipes.md) list
-   the usual switch per engine.
+   the usual hook per engine.
 4. **Capture "before" from the base commit.** Check out the default branch
    in a separate worktree and run the same command there, before you
    change anything.

@@ -21,4 +21,4 @@
 
 ## Supporting files
 
-- `budget-template.md`: frame/platform table, per-class table, rules, change log
+- `budget-template.md`: frame/platform table (with 3D render scale and decals rows), per-class table (with a decal class), rules, change log

@@ -5,8 +5,8 @@ export const meta = {
   phases: [
     { title: 'Plan', detail: 'brief, smallest useful version, test assets, doc kinds via the compass' },
     { title: 'Do', detail: 'build the tool or rule with tests' },
-    { title: 'Check', detail: 'code review, tests, artist trial against the brief; fix loop' },
-    { title: 'Docs', detail: 'how-to and reference for the tool, then verify one kind per page' },
+    { title: 'Check', detail: 'code review, tests, artist trial against the brief; fix loop; then the reviewer\'s nits applied' },
+    { title: 'Docs', detail: 'how-to and reference for the tool, then up to three independent checks and two fixes' },
   ],
 }
 
@@ -174,6 +174,19 @@ for (let round = 1; round <= 3; round++) {
 }
 if (!review.testsPass || (review.blockers || []).length) return { status: 'blocked', stage: 'check', open: review.blockers, trial: review.trial }
 
+// Nits get their own step once the blockers are gone: apply the small,
+// plainly correct ones, keep the tests green, and carry the rest.
+const NITS = { type: 'object', properties: { applied: { type: 'array', items: { type: 'string' } }, left: { type: 'array', items: { type: 'string' }, description: 'each nit not applied, with why' }, testsPass: { type: 'boolean' } }, required: ['applied', 'left', 'testsPass'] }
+let nitsLeft = review.nits || []
+if (nitsLeft.length) {
+  const polish = await agent(
+    `You are the technical-artist applying the reviewer's nits on the ${kind}:\n- ${nitsLeft.join('\n- ')}\nApply each one that is small and plainly correct; skip any that would change behaviour the trial approved or needs a decision, and say why. Re-run the tests after; revert any nit that breaks them. Commit. Return applied, left (with why) and whether the tests pass.`,
+    { schema: NITS, phase: 'Check', label: 'apply-nits' },
+  )
+  if (polish && !polish.testsPass) return { status: 'blocked', stage: 'nits', open: ['tests fail after applying nits'], trial: review.trial }
+  if (polish) nitsLeft = polish.left || []
+}
+
 // ---------- Docs ----------
 phase('Docs')
 const docs = await agent(
@@ -183,15 +196,30 @@ const docs = await agent(
 )
 if (!docs) return { status: 'blocked', stage: 'docs', open: ['docs writer returned nothing'] }
 const DOCCHECK = { type: 'object', properties: { ok: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['ok'] }
-// The check only reads, so it stays independent of the writing; small
-// fixes are their own step, followed by a fresh check.
-const docCheckPrompt = `Review the documentation pages just written for the new ${kind} (writer's report: ${JSON.stringify(docs)}). Check one Diataxis kind per page, title patterns, reference format matches siblings, links between kinds, and that the how-to works when followed literally. Read-only: do not edit anything; report every problem with its page.`
-let docCheck = await agent(docCheckPrompt, { schema: DOCCHECK, phase: 'Docs', label: 'docs:check', independent: true })
-if (docCheck && !docCheck.ok && (docCheck.problems || []).length) {
-  const docFix = await agent(`Fix these documentation problems with the smallest edits, touching only the pages they name; leave anything that needs a content decision:\n- ${docCheck.problems.join('\n- ')}`, { phase: 'Docs', label: 'docs:fix' })
-  if (docFix) docCheck = await agent(docCheckPrompt, { schema: DOCCHECK, phase: 'Docs', label: 'docs:recheck', independent: true })
+const DOCFIX = { type: 'object', properties: { pages: { type: 'array', items: { type: 'string' } }, left: { type: 'array', items: { type: 'string' }, description: 'each problem not fixed, with why' } }, required: ['pages'] }
+// The check only reads, so it stays independent of the writing; fixes are
+// their own step, each followed by a fresh check that confirms the last
+// check's problems and anything the fix left. Up to three checks and two
+// fixes; a problem still open after the last check blocks.
+const docCheckPrompt = (prior) => `Review the documentation pages just written for the new ${kind} (writer's report: ${JSON.stringify(docs)}). Check one Diataxis kind per page, title patterns, reference format matches siblings, links between kinds, and that the how-to works when followed literally.${prior.length ? `\nThe last check found these problems and a fix step has tried to close them; confirm each against the pages now and report any still present, alongside anything new:\n- ${prior.join('\n- ')}` : ''} Read-only: do not edit anything; report every problem with its page.`
+let docCheck = null
+let prior = []
+let docLeft = []
+for (let round = 1; round <= 3; round++) {
+  docCheck = await agent(docCheckPrompt(prior), { schema: DOCCHECK, phase: 'Docs', label: round === 1 ? 'docs:check' : `docs:recheck:${round - 1}`, independent: true })
+  if (!docCheck) break
+  // A problem the fix left for a content decision stays open whatever the
+  // re-check says.
+  const open = [...new Set([...(docCheck.problems || []), ...docLeft])]
+  docCheck = { ok: docCheck.ok && !docLeft.length, problems: open }
+  if (docCheck.ok || round === 3) break
+  if (!open.length) { docCheck = { ok: false, problems: ['docs check failed without details'] }; break }
+  const docFix = await agent(`Fix these documentation problems with the smallest edits, touching only the pages they name; leave anything that needs a content decision:\n- ${open.join('\n- ')}\nReturn pages: every page you edited or added, and left: any problem you did not fix, with why.`, { schema: DOCFIX, phase: 'Docs', label: `docs:fix:${round}` })
+  if (!docFix) break
+  docLeft = docFix.left || []
+  prior = open
 }
-if (!docCheck) return { status: 'done-docs-unverified', trial: review.trial, nits: review.nits || [] }
+if (!docCheck) return { status: 'done-docs-unverified', trial: review.trial, nits: nitsLeft }
 if (!docCheck.ok) return { status: 'blocked', stage: 'docs', open: (docCheck.problems && docCheck.problems.length) ? docCheck.problems : ['docs check failed without details'] }
-return { status: 'done', trial: review.trial, nits: review.nits || [], needsOtherRole: plan.needsOtherRole || 'none' }
+return { status: 'done', trial: review.trial, nits: nitsLeft, needsOtherRole: plan.needsOtherRole || 'none' }
 })(RUN.agent, RUN.phase, RUN.log)]); return RUN.finish(RUN_OUT)

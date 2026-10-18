@@ -23,6 +23,7 @@ Tick every line or write why it does not apply.
 - [ ] PBR values within the ranges in `materials-shaders/pbr-reference.md`.
 - [ ] Channel packing matches the project's packed-map convention.
 - [ ] Constant-value maps replaced with material parameters.
+- [ ] Engine import settings written next to each texture (mipmaps, compression, colour space or sRGB flag, normal-map flag) and matching its role; none left to engine defaults.
 
 ## Material
 - [ ] Uses a shared/master material or instance where one exists; material count within budget.
@@ -33,5 +34,5 @@ Tick every line or write why it does not apply.
 - [ ] Imports with project settings without manual fixes; validator passes.
 - [ ] Manifest entry added; no hard-coded paths in code.
 - [ ] Source file or generator committed/stored per the profile; re-export reproduces the asset.
-- [ ] Provenance record complete (`asset-provenance`).
+- [ ] Provenance record complete (`asset-provenance`), naming the tool actually used if the named DCC was substituted.
 - [ ] Measured numbers (triangles per LOD, texture memory, materials/draw calls, file size) in the PR.

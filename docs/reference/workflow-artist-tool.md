@@ -31,15 +31,15 @@ artist-tool  args: { problem: "normal maps keep getting imported as sRGB", users
 |---|---|
 | Plan | Brief, approach, files, known-good and known-bad test assets, doc kinds via the compass. |
 | Do | Build with tests. |
-| Check | Code review plus artist trial on real assets; up to 3 rounds with fixes; open blockers return "blocked". |
-| Docs | Do: how-to (named for the goal) and reference (options, errors). Check: one kind per page, how-to followed literally. |
+| Check | Code review plus artist trial on real assets; up to 3 rounds with fixes; open blockers return "blocked". Then one step applies the reviewer's small, plainly correct nits, re-runs the tests (reverting any nit that breaks them) and carries the rest. |
+| Docs | Do: how-to (named for the goal) and reference (options, errors). Check: one kind per page, how-to followed literally. Up to three independent checks and two fixes; each re-check confirms the last check's problems and anything the fix left; a problem still open after the last check returns "blocked". |
 
 ## Outputs (`status`)
 
 | Status | Meaning |
 |---|---|
-| `done` | Returns `trial`, `nits`, `needsOtherRole`. |
-| `blocked` | Returns `stage` and `open`. |
+| `done` | Returns `trial`, `nits` (the ones not applied, with why), `needsOtherRole`. |
+| `blocked` | Returns `stage` (`plan`, `do`, `check`, `nits`, `docs`) and `open`. |
 | `done-docs-unverified` | Docs check returned nothing. |
 
 ## Run modes
