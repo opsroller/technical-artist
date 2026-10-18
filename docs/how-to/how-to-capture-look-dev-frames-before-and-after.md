@@ -9,7 +9,7 @@ for you.
 1. **List the frames**: the look-dev scene and the gameplay camera, once
    per renderer or quality tier the project ships, at one size.
 2. **Find the capture command.** Use the project's own if it has one
-   (profile, scripts, CI jobs). If not, build one from the skill's generic
+   (profile, scripts, CI jobs). If not, build one from the skill's
    capture command recipe and the flags for the project's engine in the
    [engine recipes](../../skills/lookdev-capture/engine-recipes.md); if it
    cannot be built on this machine, note the capture as pending and why. On a

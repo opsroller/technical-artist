@@ -57,7 +57,7 @@ frames go; it wins over this skill.
    about the screen as played; say which frames keep it.
 4. **Find or build the capture command.** Use the project's capture
    command if it has one (project profile, scripts, CI jobs, docs). If
-   it has none, build one from the generic recipe below and keep it as
+   it has none, build one from the recipe below and keep it as
    a script the project can adopt (propose it with its reference page);
    if it cannot be built here (no engine binary, display or software
    driver), mark the capture pending with the reason. Never assume a
@@ -97,7 +97,7 @@ frames go; it wins over this skill.
    artifacts, not in the repository. Never commit large binary frames
    by default.
 
-## Generic capture command recipe
+## Capture command recipe
 
 When the project has no capture command, build one from these parts;
 the engine-specific flags are in [engine-recipes.md](engine-recipes.md).

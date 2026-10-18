@@ -17,7 +17,7 @@
 1. Pick the frames: look-dev scene and gameplay camera, one per renderer or tier
 2. Make the frame deterministic: fixed timestep and seed, warm-up frames, one named frame
 3. Isolate the scene: capture mode, through a capture hook the project provides (flag, environment variable or override file); with none, propose one as a small separate change for the overlay code's owner, never hand-edit shipping configuration
-4. Find or build the capture command: the project's own, or one built from the generic recipe; otherwise mark the capture pending with the reason
+4. Find or build the capture command: the project's own, or one built from the recipe; otherwise mark the capture pending with the reason
 5. Render with the engine's offline mode; virtual display and software driver when there is no GPU
 6. Verify every frame: size, not black or blank, the right frame, no overlay
 7. Capture "before" first, from the base commit, with the same setup
@@ -25,7 +25,7 @@
 9. Judge against the brief, art direction and readability criteria
 10. Store by the project's rule; no large frames in the repository
 
-The skill also holds a generic capture command recipe: the parts a capture script sets (engine, scene and camera, capture mode, size, renderer, time, output, display).
+The skill also holds a capture command recipe: the parts a capture script sets (engine, scene and camera, capture mode, size, renderer, time, output, display).
 
 ## Supporting files
 
