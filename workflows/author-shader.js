@@ -1,0 +1,312 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+export const meta = {
+  name: 'author-shader',
+  description: 'Author or rework one shader (and the materials that use it) from an effect brief: write the effect down with its coverage, platforms, tiers, fallbacks, permutations and cost budget, capture look-dev frames before, build it on the project\'s shared material conventions, capture after, attack it in parallel independent read-only reviews (look, cost and permutations, platforms and fallbacks, artist parameters), fix, document it and push it as a handoff for engineering-practices deliver-package or land-pr. Builds on the materials-shaders and lookdev-capture skills. args: { shader: "<shader name>", brief: "<what it must look like and where it is used>", replaces?: "<existing shader or material, optional>", wp?: "<work package id>", branch?: "<existing branch>", pr?: "<existing PR>" }',
+  phases: [
+    { title: 'Plan', detail: 'effect, coverage, platforms and tiers, fallbacks, permutations, parameters, cost budget, look-dev frames, doc kinds' },
+    { title: 'Before', detail: 'capture the look-dev frames on the current state (lookdev-capture skill)' },
+    { title: 'Build', detail: 'shader, material instances, tier variants and fallbacks; compiles on every renderer; cost measured' },
+    { title: 'After', detail: 'capture the same frames with the new shader' },
+    { title: 'Review', detail: 'parallel independent read-only reviews: look, cost and permutations, platforms and fallbacks, artist parameters' },
+    { title: 'Fix', detail: 'one agent fixes what the reviews found and re-captures; only failures block, notes never do' },
+    { title: 'Docs', detail: 'write or update the planned Diataxis pages, then an independent check of one kind per page' },
+    { title: 'Handoff', detail: 'commit, push, open or reuse a draft PR, return a handoff for deliver-package or land-pr' },
+  ],
+}
+
+// --- run-modes v2 begin ---
+const RUN = ((a, realAgent, realPhase, realLog) => {
+  const opted = !!(a && typeof a === 'object' && a.run && typeof a.run === 'object')
+  const c = opted ? a.run : {}
+  const mode = c.mode === 'inline' ? 'inline' : 'agents'
+  const results = c.results && typeof c.results === 'object' ? c.results : {}
+  const reviewers = c.reviewers && typeof c.reviewers === 'object' ? c.reviewers : {}
+  const only = Array.isArray(c.only) && c.only.length ? c.only.map(String) : null
+  const from = c.from ? String(c.from) : null
+  const titles = typeof meta !== 'undefined' && meta && Array.isArray(meta.phases) ? meta.phases.map((p) => p.title) : []
+  const unknown = titles.length ? (from ? [from] : []).filter((t) => !titles.includes(t)) : []
+  const error = c.mode && !['agents', 'inline'].includes(c.mode)
+    ? `run.mode must be "agents" or "inline", got "${c.mode}"`
+    : unknown.length ? `run.from names no phase: ${unknown.join(', ')}. Phases: ${titles.join(', ')}` : null
+  const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k)
+  // An answer must carry every required key of its schema, as the runtime
+  // enforces for agents; returns the missing keys, or null when it fits.
+  const missing = (v, schema) => {
+    if (v === null || v === undefined) return 'an answer'
+    if (!schema || schema.type !== 'object') return null
+    if (typeof v !== 'object' || Array.isArray(v)) return 'a JSON object'
+    const gap = (schema.required || []).filter((k) => !has(v, k) || v[k] === undefined)
+    return gap.length ? gap.join(', ') : null
+  }
+  const seen = {}
+  const out = {}
+  // Who answered each step marked independent: "subagent" when this run
+  // spawned it, else the reviewer named in run.reviewers, else "self".
+  const by = {}
+  const who = (k) => (typeof reviewers[k] === 'string' && reviewers[k].trim() ? reviewers[k].trim() : 'self')
+  const skipped = []
+  const next = []
+  const logs = []
+  let current = ''
+  let reached = !from
+  let halting = false
+  let release = () => {}
+  const halted = new Promise((r) => { release = r })
+  const picked = (ph, label) => reached && (!only || only.some((s) => s === ph || s === label || label.startsWith(s + ':')))
+  const agent = (prompt, opts) => {
+    const op = opts || {}
+    const independent = op.independent === true
+    const ph = op.phase || current
+    const base = op.label || ph || 'agent'
+    seen[base] = (seen[base] || 0) + 1
+    const key = seen[base] > 1 ? `${base}#${seen[base]}` : base
+    let note = null
+    if (has(results, key)) {
+      const gap = missing(results[key], op.schema)
+      if (!gap) { out[key] = results[key]; if (independent) by[key] = who(key); return Promise.resolve(results[key]) }
+      note = `answer missing ${gap}; answer this brief again`
+    }
+    if (!picked(ph, base)) { skipped.push(key); return Promise.resolve(null) }
+    if (mode === 'agents') {
+      const pass = Object.assign({}, op)
+      delete pass.independent
+      return realAgent(prompt, opts ? pass : opts).then((r) => {
+        if (r !== null && r !== undefined) { out[key] = r; if (independent) by[key] = 'subagent' }
+        return r
+      })
+    }
+    const brief = { key, phase: ph, prompt, schema: op.schema || null }
+    if (independent) brief.independent = true
+    if (note) brief.note = note
+    next.push(brief)
+    if (!halting) {
+      halting = true
+      // Wait 200 microtask turns before pausing, so every sibling in a
+      // parallel() or pipeline() fan-out queues its brief into this pause.
+      ;(async () => { for (let i = 0; i < 200; i++) await null; release('__run_halted__') })()
+    }
+    return new Promise(() => {})
+  }
+  const phase = (t) => { current = t; if (from && t === from) reached = true; return realPhase(t) }
+  const log = (m) => { logs.push(String(m)); return realLog(m) }
+  const finish = (value) => {
+    if (!opted) return value
+    const self_reviewed = Object.keys(by).filter((k) => by[k] === 'self')
+    if (value === '__run_halted__') {
+      return {
+        run: 'inline', status: 'next', next, results: out, reviewers: by, self_reviewed, skipped, logs,
+        how: 'Do each brief in next, in order: follow its prompt in this session (it may tell you to edit files, commit or push), and shape your answer to its schema when one is given, with every required field. A brief marked independent reviews work this run produced, so do not answer it yourself: send its prompt to a reviewer with no part in the work (the project\'s code-reviewer role, a fresh session or a fresh subagent), use their answer, and name them in run.reviewers under its key; if you must answer it yourself, it is listed in self_reviewed and must be reported as self-reviewed. A brief with a note was answered before without the fields it names. Add each answer to results under its key, then run this workflow again with the same args, run.results set to the merged results and run.reviewers to the merged reviewers. Repeat until status is "done". To avoid pasting results back on every call, drive the run with engineering-practices tools/run-inline.mjs and a state file instead: it stores each answer and prints only the next briefs.',
+      }
+    }
+    return { run: mode, status: 'done', result: value, results: out, reviewers: by, self_reviewed, skipped, logs }
+  }
+  return { agent, phase, log, finish, halted, error }
+})(typeof args === 'undefined' ? undefined : args, agent, phase, log)
+if (RUN.error) return RUN.error
+const RUN_OUT = await Promise.race([RUN.halted, (async (agent, phase, log) => {
+// --- run-modes v2 end (workflow body follows; close it with the tail line) ---
+
+const USAGE = 'usage: author-shader { shader: "<shader name, e.g. SH_Gem>", brief: "<what it must look like, where it is used, what it must communicate>", replaces: "<existing shader or material, optional>", wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>" }'
+if (!args || !args.shader || !args.brief) return USAGE
+const shader = String(args.shader)
+const brief = String(args.brief)
+const replaces = args.replaces ? String(args.replaces) : ''
+const wp = args.wp ? String(args.wp) : ''
+const where = args.pr
+  ? `Work on the existing PR ${args.pr} and its head branch; do not create a new branch or PR.`
+  : args.branch
+    ? `Work on the existing branch ${args.branch} (reuse its open PR if one exists); do not create a new branch.`
+    : 'Work on the current feature branch; if you are on the default branch, cut a Conventional branch (feat/<slug>) from the latest remote default branch.'
+
+const DOCS_FRAGMENT = 'Classify every user-visible change in this work with the Diataxis compass (action/cognition x study/work). For each, update or add exactly one page of that kind under the project\'s docs location (per the project profile), keep each page to one kind, title it by the project pattern (how-to names a goal, explanation reads "About ...", reference is named for the thing), and link to the related pages of the other kinds. Report pages touched and any change you left undocumented and why.'
+
+// Only failures block. Every review returns blocking problems and
+// informational notes in separate fields, and the workflow stops on the
+// blocking field alone, so a note never turns green work into "blocked".
+const NOTES_RULE = 'Put a problem in the blocking list only if it is a failure you can point to: a frame that visibly misses the brief or a readability criterion, a renderer or platform where it fails to compile or renders wrong, a measured cost over budget, a tier without its fallback, a parameter that breaks the material when moved through its range. Everything else (observations, ideas, questions, "nothing found") goes in notes.'
+
+const strings = (xs) => (Array.isArray(xs) ? xs.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim()) : [])
+const notes = []
+
+const PLAN = {
+  type: 'object',
+  properties: {
+    effect: { type: 'string', description: 'what it must look like, written down: the reference, what changes with light and view, what it must communicate in play' },
+    coverage: { type: 'string', description: 'where it is used and how much of the screen it covers at most; opaque, alpha-tested or blended' },
+    standard: { type: 'string', description: 'why the project\'s standard material cannot do this, or "extends <shared shader or include>"' },
+    targets: { type: 'array', items: { type: 'string' }, description: 'each renderer or backend and platform it must run on' },
+    tiers: { type: 'array', items: { type: 'string' }, description: 'each "tier: technique and quality for this tier" from the visual target, lowest first; empty if the project has no tiers' },
+    fallbacks: { type: 'array', items: { type: 'string' }, description: 'each "where: what renders instead" for a tier or renderer without the full effect' },
+    permutations: { type: 'string', description: 'static switches and how many compiled variants they make' },
+    parameters: { type: 'array', items: { type: 'string' }, description: 'each artist parameter with name, range and default; everything else stays hidden' },
+    budget: { type: 'string', description: 'cost limit on the lowest tier that uses it: ms at its coverage, or instruction and texture-sample counts, and how it is measured' },
+    files: { type: 'array', items: { type: 'string' }, description: 'shader, include, material instances and look-dev scene files this work may write' },
+    lookdev: {
+      type: 'object',
+      properties: {
+        possible: { type: 'boolean' },
+        frames: { type: 'array', items: { type: 'string' }, description: 'each "scene / camera / renderer or tier"' },
+        command: { type: 'string' },
+        outDir: { type: 'string' },
+        why: { type: 'string' },
+      },
+      required: ['possible'],
+    },
+    ambiguous: { type: 'array', items: { type: 'string' }, description: 'each "AMBIGUOUS: <question> -> default <value>"' },
+    docKinds: { type: 'array', items: { type: 'object', properties: { kind: { type: 'string', enum: ['tutorial', 'how-to', 'reference', 'explanation'] }, page: { type: 'string' }, why: { type: 'string' } }, required: ['kind', 'page', 'why'] } },
+    blockers: { type: 'array', items: { type: 'string' }, description: 'only what stops the work: no brief to judge against, unknown engine or targets' },
+    caveats: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['effect', 'coverage', 'standard', 'targets', 'tiers', 'fallbacks', 'permutations', 'parameters', 'budget', 'files', 'lookdev', 'ambiguous', 'docKinds'],
+}
+const FRAMES = { type: 'object', properties: { frames: { type: 'array', items: { type: 'string' }, description: 'each "<file> : scene / camera / renderer or tier, size WxH, driver"' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['frames'] }
+const BUILD = { type: 'object', properties: { compiles: { type: 'array', items: { type: 'string' }, description: 'each "<renderer or platform>: ok | error"' }, measured: { type: 'string', description: 'cost on the lowest tier that uses it, with device or stand-in, or "estimate: ..."' }, variants: { type: 'string', description: 'compiled variant count' }, files: { type: 'array', items: { type: 'string' } }, branch: { type: 'string' }, non_original: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' } }, required: ['compiles', 'measured', 'files', 'branch'] }
+const REVIEW = { type: 'object', properties: { problems: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['problems'] }
+const FIX = { type: 'object', properties: { fixed: { type: 'array', items: { type: 'string' } }, failing: { type: 'array', items: { type: 'string' } }, frames: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['fixed', 'failing'] }
+const DOCS = { type: 'object', properties: { pages: { type: 'array', items: { type: 'string' } }, undocumented: { type: 'array', items: { type: 'string' } } }, required: ['pages', 'undocumented'] }
+const DOCCHECK = { type: 'object', properties: { ok: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['ok'] }
+const HANDOFF = { type: 'object', properties: { branch: { type: 'string' }, pr: { type: 'string' }, head_sha: { type: 'string' }, tests_pass: { type: 'boolean' }, problem: { type: 'string' } }, required: ['branch', 'tests_pass'] }
+
+phase('Plan')
+const plan = await agent(
+  `You are the technical-artist authoring the shader "${shader}". Onboard first (engineering-practices project-onboarding), then follow the technical-artist skills materials-shaders (Shader method), art-budgets-profiling and lookdev-capture. Brief: ${brief}\n` +
+  (replaces ? `It replaces or reworks: ${replaces}. Read it first and keep what it gets right.\n` : '') +
+  'Write the effect down before any code: what it must look like, where it is used and how much screen it covers, opaque or blended. Start from the project\'s shared material or shader includes; a new shader needs a stated reason the standard one cannot do the effect. ' +
+  'Read the project\'s quality tiers and renderer decision (visual target; the renderer and features per tier are the graphics-programmer\'s decision, so take them as given and put any missing decision in blockers), list the renderers and platforms it must run on, the technique per tier and a fallback for every tier or renderer without the full effect. ' +
+  'Plan static switches with their compiled variant count, the artist parameters with ranges and defaults, and a cost budget on the lowest tier that uses it with how it is measured. Plan the look-dev frames (lookdev-capture skill) or set possible to false with the reason. ' +
+  'State each gap as "AMBIGUOUS: <question> -> default <value>". Plan documentation with the Diataxis compass: a new shader owes reference (parameters, permutations, cost, platforms, fallbacks) and an explanation of design choices; a how-to when someone must do something new with it. List the files you will change. Do not edit files.',
+  { schema: PLAN, phase: 'Plan', label: 'plan' })
+if (!plan) return 'blocked: planning failed (no plan returned) for ' + shader
+if (strings(plan.blockers).length) return { status: 'blocked', stage: 'plan', open: strings(plan.blockers) }
+const ambiguous = strings(plan.ambiguous)
+const caveats = strings(plan.caveats)
+const look = plan.lookdev || { possible: false }
+if (!look.possible) notes.push('look-dev frames not captured: ' + (look.why || 'the plan found no way to render headless'))
+const spec = `Effect: ${plan.effect}\nCoverage: ${plan.coverage}\nBase: ${plan.standard}\nTargets: ${strings(plan.targets).join(', ')}\nTiers: ${strings(plan.tiers).join('; ') || 'none'}\nFallbacks: ${strings(plan.fallbacks).join('; ') || 'none'}\nPermutations: ${plan.permutations}\nParameters: ${strings(plan.parameters).join('; ')}\nBudget: ${plan.budget}`
+const captureBrief = (tag) => `Capture the look-dev frames ${tag === 'before' ? 'before the change' : 'with the new shader'}, following the technical-artist lookdev-capture skill exactly: ${JSON.stringify(look.frames || [])} with ${look.command || 'the project\'s headless render command'}, into ${look.outDir || 'a frames directory the project profile names'}. Name each file <scene>-<camera>-<renderer or tier>-${tag}. ${tag === 'before' ? 'Render from the base commit (a separate worktree of the base branch) so the frames show the state before this work, even if the working branch already has changes. ' : 'Render from the working tree with the same command, size, frame and driver as the before frames. '} Check every frame is the requested size and is not black, blank or captured before the scene settled; re-capture any that fail. Write a greyscale copy of each. Change no project files except the frames. Return the frame files with what each shows and the driver that rendered it, and anything you could not capture in problems.`
+log(`${strings(plan.targets).length} targets, ${strings(plan.tiers).length} tiers, ${strings(plan.parameters).length} parameters, ${ambiguous.length} ambiguous`)
+
+let before = null
+if (look.possible) {
+  phase('Before')
+  before = await agent(captureBrief('before'), { schema: FRAMES, phase: 'Before', label: 'capture:before' })
+  if (!before || !strings(before.frames).length) notes.push('before frames missing: ' + (before ? strings(before.problems).join('; ') : 'capture step returned nothing'))
+}
+
+phase('Build')
+const build = await agent(
+  `Build the shader "${shader}" following the technical-artist materials-shaders skill (Shader method and Material method) and the project profile. ${where}\n${spec}\n` +
+  `Write files only in: ${strings(plan.files).join(', ')}. Use the project's shared includes and conventions (colour spaces, packing, normal convention) and expose only the planned parameters with their ranges. Give every tier its technique and every planned fallback. Update the material instances that use it and the look-dev scene if it needs one. ` +
+  (ambiguous.length ? 'Implement each stated default as a named value and keep this list:\n- ' + ambiguous.join('\n- ') + '\n' : '') +
+  'Compile or load it on every target renderer (headless where the engine allows) and report each result. Measure the cost on the lowest tier that uses it against the budget (instruction and sample counts from the compiler, or a timed capture at its coverage); if no target device is reachable, give a sourced estimate and label it "estimate". Count compiled variants. Run the project validator and tests. ' +
+  'Log every non-original item (code, noise textures, LUTs) per the asset-provenance skill. Commit with Conventional Commits. Return compile results per target, the measured or estimated cost, the variant count, the files, the branch and the non-original items (empty if none).',
+  { schema: BUILD, phase: 'Build', label: 'build' })
+if (!build) return { status: 'blocked', stage: 'build', open: ['build step returned nothing'] }
+const compileErrors = strings(build.compiles).filter((c) => !/:\s*ok\b/i.test(c))
+if (compileErrors.length) return { status: 'blocked', stage: 'build', open: compileErrors.map((c) => 'does not compile or load: ' + c), notes }
+if (build.notes) notes.push('build: ' + build.notes)
+
+let after = null
+if (look.possible) {
+  phase('After')
+  after = await agent(captureBrief('after'), { schema: FRAMES, phase: 'After', label: 'capture:after' })
+  if (!after || !strings(after.frames).length) notes.push('after frames missing: ' + (after ? strings(after.problems).join('; ') : 'capture step returned nothing'))
+}
+const afterFrames = after ? strings(after.frames) : []
+
+phase('Review')
+const lenses = [
+  { key: 'look', text: `look: open every before and after frame and its greyscale copy (lookdev-capture skill, "Judge"). Before: ${JSON.stringify(before ? before.frames : [])}. After: ${JSON.stringify(afterFrames)}. Does it look like the effect written down, read from the gameplay camera, keep gameplay objects apart by value, silhouette and colour on every tier captured, and add to the base look rather than change what reads? A software-rendered frame judges values and readability, not GPU-only features. If there are no after frames, say so in problems.` },
+  { key: 'cost', text: `cost and permutations: budget ${plan.budget}; measured ${build.measured}; ${build.variants || 'unknown'} compiled variants (planned: ${plan.permutations}). Read the shader for pixel work that could move to vertex or a texture, redundant samples, blending over large areas, and switches that multiply variants (materials-shaders, art-budgets-profiling). A measured cost over budget is a problem; a labelled estimate is a note.` },
+  { key: 'platforms', text: `platforms and fallbacks: targets ${strings(plan.targets).join(', ')}; tiers ${strings(plan.tiers).join('; ') || 'none'}; fallbacks ${strings(plan.fallbacks).join('; ') || 'none'}; compile results ${strings(build.compiles).join('; ')}. Every target compiles, every tier gets its technique, every lower tier or renderer without the full effect gets its fallback, and nothing renders black, pink or untextured; precision and features the weakest target lacks are not used unguarded.` },
+  { key: 'params', text: `artist parameters and materials: planned ${strings(plan.parameters).join('; ')}. Each parameter has a clear name, range and default; moving it across its whole range never breaks the look (no NaN, blown highlights, negative values); hidden values stay hidden; material instances that use it follow the project\'s colour-space and packing conventions (materials-shaders, pbr-reference.md).` },
+]
+const reviews = await parallel(lenses.map((l) => () => agent(
+  `You are a technical-artist giving an independent review of the new shader "${shader}", which you did not write. Review it through ${l.text}\nSpec:\n${spec}\nFiles: ${strings(build.files).join(', ')}. Do not edit any file. ${NOTES_RULE}`,
+  { schema: REVIEW, phase: 'Review', label: 'review:' + l.key, independent: true })))
+const unverified = []
+const problems = []
+reviews.forEach((r, i) => {
+  const k = lenses[i].key
+  if (!r || !Array.isArray(r.problems)) unverified.push(k)
+  else {
+    r.problems.forEach((p) => problems.push(`${k}: ${p}`))
+    strings(r.notes).forEach((n) => notes.push(`${k}: ${n}`))
+  }
+})
+
+let frames = afterFrames
+if (problems.length) {
+  phase('Fix')
+  const fix = await agent(
+    `Fix these review findings on the shader "${shader}" in one pass, in the planned files only, following the same skills and spec as the build:\n${spec}\n- ${problems.join('\n- ')}\n` +
+    'Recompile on every target, re-measure cost if the shader changed, run the project validator and tests, and' + (look.possible ? ` re-capture the after frames with the same command and names (${look.command || 'the project\'s capture command'}), checking size and content as the lookdev-capture skill says,` : '') + ' then commit. Return what you fixed, each finding that still fails (one line each), the new frames' + (look.possible ? '' : ' (none)') + ' and notes. ' + NOTES_RULE,
+    { schema: FIX, phase: 'Fix', label: 'fix' })
+  if (!fix) return { status: 'blocked', stage: 'fix', open: problems, notes }
+  strings(fix.notes).forEach((n) => notes.push('fix: ' + n))
+  if (strings(fix.failing).length) return { status: 'blocked', stage: 'fix', open: strings(fix.failing), notes }
+  if (strings(fix.frames).length) frames = strings(fix.frames)
+}
+
+phase('Docs')
+const docKinds = Array.isArray(plan.docKinds) ? plan.docKinds : []
+const docs = await agent(
+  `Document the shader "${shader}" in the same PR. Planned pages:\n` +
+  (docKinds.length ? docKinds.map((d) => `- ${d.kind}: ${d.page} (${d.why})`).join('\n') : '- (none planned; re-run the compass)') +
+  `\nThe reference page lists the parameters with ranges and defaults, the permutations and variant count, the technique and fallback per tier and renderer, and the cost (measured, or labelled estimate): ${build.measured}.` +
+  (frames.length ? ` Where the project shows look-dev frames in its docs, use these: ${JSON.stringify(frames)}.` : '') + ' ' + DOCS_FRAGMENT,
+  { schema: DOCS, phase: 'Docs', label: 'docs:do' })
+if (!docs) return { status: 'blocked', stage: 'docs', open: ['docs step failed; a shader without its docs is not done'], notes }
+// The check only reads, so it stays independent of the docs it judges;
+// fixes are their own step, followed by a fresh check.
+const docCheckPrompt = `Review the documentation pages just written for the shader "${shader}" (writer's report: ${JSON.stringify(docs)}). ` +
+  'Check that every touched page holds one Diataxis kind only, starts with a line saying its kind and audience, how-to titles name a goal, explanation titles read with "About", reference matches sibling pages and states parameters, permutations, tiers, fallbacks and cost, and links connect the kinds. Read-only: do not edit anything; report every problem with its page.'
+let docCheck = await agent(docCheckPrompt, { schema: DOCCHECK, phase: 'Docs', label: 'docs:check', independent: true })
+if (docCheck && !docCheck.ok && (docCheck.problems || []).length) {
+  const docFix = await agent(`Fix these documentation problems with the smallest edits, touching only the pages they name; leave anything that needs a content decision:\n- ${docCheck.problems.join('\n- ')}`, { phase: 'Docs', label: 'docs:fix' })
+  if (docFix) docCheck = await agent(docCheckPrompt, { schema: DOCCHECK, phase: 'Docs', label: 'docs:recheck', independent: true })
+}
+if (!docCheck) notes.push('docs check returned nothing; review the pages by hand')
+else if (!docCheck.ok) return { status: 'blocked', stage: 'docs', open: (docCheck.problems && docCheck.problems.length) ? docCheck.problems : ['docs check failed without details'], notes }
+
+phase('Handoff')
+const handoff = await agent(
+  `Hand off the shader "${shader}". ${where} Make sure every commit is pushed to the branch (${build.branch}); if no pull request is open for it, open a draft PR titled as a Conventional Commit${wp ? ` with "Refs: ${wp}" in the body` : ''}, with the effect, the cost against budget, the variant count, the technique and fallback per tier, the docs pages by Diataxis kind${frames.length ? ', the before and after frames' : ''}${ambiguous.length ? ', the defaults taken for ambiguous points' : ''}${caveats.length ? ', and a "Known risks" section: ' + caveats.join('; ') : ''}. ` +
+  'Do not mark it ready, request review or merge: the engineering-practices workflow named in the result does that. Follow the engineering-practices git-workflow skill. Run the project\'s tests and asset validator on the pushed head. Return the branch, PR URL, head commit SHA, and whether they pass on that head.',
+  { schema: HANDOFF, phase: 'Handoff', label: 'handoff' })
+if (!handoff || !handoff.branch) return { status: 'blocked', stage: 'handoff', open: ['hand-off failed; the work is committed on ' + build.branch + ' but may not be pushed'], notes }
+if (!handoff.tests_pass) return { status: 'blocked', stage: 'handoff', open: ['tests or asset validator not green on the pushed head' + (handoff.problem ? ': ' + handoff.problem : '')], notes }
+
+// An unverified review still hands off, but says so where deliver-package
+// and the reviewer will read it.
+unverified.forEach((k) => notes.push(`unverified: review:${k} returned nothing`))
+return {
+  status: unverified.length || !docCheck ? 'unverified' : 'done',
+  shader,
+  measured: build.measured,
+  variants: build.variants || '',
+  ambiguous,
+  unverifiedReviews: unverified,
+  findingsFixed: problems.length,
+  before: before ? before.frames : [],
+  after: frames,
+  docs: docs.pages,
+  undocumented: docs.undocumented,
+  caveats,
+  notes,
+  handoff: {
+    from: 'technical-artist:author-shader',
+    branch: handoff.branch,
+    pr: handoff.pr || '',
+    head_sha: handoff.head_sha || '',
+    tests_pass: true,
+    docs: docs.pages || [],
+    undocumented: docs.undocumented || [],
+    non_original: strings(build.non_original),
+    notes: caveats.concat(notes),
+  },
+  next: wp
+    ? `ship it without rebuilding: /engineering-practices:deliver-package { wp: "${wp}", prior: <this result> }; after the code reviewer passes, /engineering-practices:land-pr { pr: "<the PR>" }`
+    : `land it (it marks the PR ready, asks the code reviewer, polls CI and squash-merges once passed): /engineering-practices:land-pr ${handoff.pr ? `{ pr: "${handoff.pr}" }` : `{ branch: "${handoff.branch}" }`}`,
+}
+})(RUN.agent, RUN.phase, RUN.log)]); return RUN.finish(RUN_OUT)

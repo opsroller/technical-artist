@@ -14,9 +14,11 @@
 
 | Area | Skill |
 |---|---|
-| Authored assets | [realtime-asset-authoring](skill-realtime-asset-authoring.md) |
+| Authored assets | [realtime-asset-authoring](skill-realtime-asset-authoring.md), [asset-batch](workflow-asset-batch.md) |
 | Procedural assets | [procedural-assets](skill-procedural-assets.md) |
-| Materials, shaders, look-dev | [materials-shaders](skill-materials-shaders.md) |
+| Materials, shaders, look-dev | [materials-shaders](skill-materials-shaders.md), [author-shader](workflow-author-shader.md) |
+| Look-dev captures | [lookdev-capture](skill-lookdev-capture.md) |
+| Visual acceptance checks | [visual-acceptance-checks](skill-visual-acceptance-checks.md), [calibrate-visual-checks](workflow-calibrate-visual-checks.md) |
 | Visual target, quality tiers, readability criteria | [visual-target](workflow-visual-target.md) (renderer and features per tier: graphics-programmer) |
 | Budgets and profiling | [art-budgets-profiling](skill-art-budgets-profiling.md) |
 | LODs and optimisation | [lods-optimization](skill-lods-optimization.md) |
@@ -32,7 +34,7 @@
 4. Measure against budget.
 5. Validate; add manifest entry and provenance record in the same change.
 6. Document by Diataxis kind in the project's docs.
-7. Hand off with numbers, risks and next role.
+7. Hand off with numbers, risks and next role; workflows that build work return a `handoff` for engineering-practices deliver-package `prior`.
 
 ## Never
 

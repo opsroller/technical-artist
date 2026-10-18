@@ -29,6 +29,15 @@
 - **Godot Engine, Overview of renderers** - https://docs.godotengine.org/en/stable/tutorials/rendering/renderers.html - rendering paths differ in features and platform support; the engine research starts from which path each target can run.
 - **Android, Performance class** - https://developer.android.com/topic/performance/performance-class - grouping devices by capability rather than model name; informed the tier proposal.
 
+## Look-dev capture and visual checks
+
+- **Godot Engine, Creating movies (Movie Maker mode)** - https://docs.godotengine.org/en/stable/tutorials/animation/creating_movies.html - fixed-step offline rendering to image sequences; informed the deterministic-frame steps of `lookdev-capture`.
+- **Mesa, llvmpipe** - https://docs.mesa3d.org/drivers/llvmpipe.html - software rasterizer for rendering without a GPU (lavapipe is its Vulkan driver); informed the software-renderer section.
+- **X.Org, Xvfb manual** - https://www.x.org/releases/current/doc/man/man1/Xvfb.1.xhtml - virtual framebuffer display for rendering with no screen attached.
+- **W3C, Understanding WCAG 2.1 Success Criterion 1.4.11: Non-text Contrast** - https://www.w3.org/WAI/WCAG21/Understanding/non-text-contrast.html - relative-luminance contrast ratio and the 3:1 level for UI parts; informed the contrast metric.
+- **Machado, Oliveira and Fernandes, A Physiologically-based Model for Simulation of Color Vision Deficiency (2009)** - https://www.inf.ufrgs.br/~oliveira/pubs_files/CVD_Simulation/CVD_Simulation.html - simulation matrices per deficiency and severity, applied in linear RGB; informed the colour-blind separation check.
+- **Sharma, Wu and Dalal, The CIEDE2000 Color-Difference Formula (2005)** - https://hajim.rochester.edu/ece/sites/gsharma/ciede2000/ - implementation notes and test data for ΔE00; informed the colour separation metric.
+
 ## Standards and established practice
 
 - **Adobe (Allegorithmic), The PBR Guide part 2** - https://www.adobe.com/learn/substance-3d-designer/web/the-pbr-guide-part-2 - metal/roughness value ranges, colour spaces, F0, common mistakes.

@@ -12,9 +12,10 @@
 
 ## Method steps
 
-1. Material: start from the shared material; workflow value rules; texture set; colour spaces; validate values; variants by parameter
-2. Shader: write the effect down; prototype; measure cost; reduce; expose parameters; test every platform tier
-3. Look-dev: neutral scene, reference comparison, greyscale readability check, lighting hand-offs
+1. Material: start from the shared material; workflow value rules; texture set; colour spaces; validate values; variants by parameter; quality-tier variants
+2. Texture sets from a generator: one unit of work; fix the generator, not outputs; byte-identical regeneration; generated-output policy; scripted checks
+3. Shader ([author-shader](workflow-author-shader.md)): write the effect down; prototype; measure cost; reduce; expose parameters; test every platform tier
+4. Look-dev: neutral scene, reference comparison, greyscale readability check ([lookdev-capture](skill-lookdev-capture.md)), automated checks ([visual-acceptance-checks](skill-visual-acceptance-checks.md)), lighting hand-offs
 
 ## Supporting files
 
