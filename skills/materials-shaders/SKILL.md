@@ -64,7 +64,10 @@ The `author-shader` workflow runs these steps with independent reviews.
    permutation count (each switch can double compiled variants and build time).
 5. **Expose artist parameters** with sensible ranges and names; hide the rest.
 6. **Test on every renderer and platform tier** the project targets, including
-   fallbacks.
+   fallbacks. A target this machine cannot compile for at all (a
+   platform-only shader compiler, e.g. Metal from a Linux host) is
+   "pending CI", never "ok": name the CI job that compiles it, list it in
+   the PR, and confirm it from that job's result before merge.
 
 ## Look-dev and lighting support
 

@@ -16,13 +16,14 @@
 
 1. Pick the frames: look-dev scene and gameplay camera, one per renderer or tier
 2. Make the frame deterministic: fixed timestep and seed, warm-up frames, one named frame
-3. Render with the engine's offline mode; virtual display and software driver when there is no GPU
-4. Verify every frame: size, not black or blank, the right frame
-5. Capture "before" first, from the base commit, with the same setup
-6. Derive greyscale, side-by-side and difference images by script
-7. Judge against the brief, art direction and readability criteria
-8. Store by the project's rule; no large frames in the repository
+3. Isolate the scene: keep autoloaded UI, fades and debug overlays out with a documented capture override
+4. Render with the engine's offline mode; virtual display and software driver when there is no GPU
+5. Verify every frame: size, not black or blank, the right frame, no overlay
+6. Capture "before" first, from the base commit, with the same setup
+7. Derive greyscale, side-by-side and difference images by script
+8. Judge against the brief, art direction and readability criteria
+9. Store by the project's rule; no large frames in the repository
 
 ## Supporting files
 
-- `engine-recipes.md`: virtual display and software GPU on Linux (Xvfb, Mesa lavapipe and llvmpipe), capture commands for Godot 4, Unreal Engine and Unity, and Pillow and ImageMagick commands for derived images.
+- `engine-recipes.md`: virtual display and software GPU on Linux (Xvfb, Mesa lavapipe and llvmpipe), capture commands for Godot 4, Unreal Engine and Unity, overlay overrides per engine, and Pillow and ImageMagick commands for derived images.

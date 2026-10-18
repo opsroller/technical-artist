@@ -44,7 +44,7 @@ uses the same layout so you can find fields in the same place.
 | Field | Value |
 |---|---|
 | `name` | `technical-artist` |
-| `version` | `0.6.0` |
+| `version` | `0.7.0` |
 | `description` | One-sentence role summary |
 | `author.name` | `opsroller` |
 | `repository` | `https://github.com/opsroller/technical-artist` |

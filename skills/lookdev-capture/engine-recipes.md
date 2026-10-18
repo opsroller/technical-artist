@@ -37,6 +37,18 @@ project pins, and verify the output as the skill says.
 | Batch render | `-batchmode` without `-nographics` keeps the GPU; run an editor method with `-executeMethod` that renders a camera into a `RenderTexture` and saves it with `ReadPixels` and `EncodeToPNG` |
 | Determinism | `Time.captureFramerate` for fixed steps, `Random.InitState` for seeds |
 
+## Overlays drawn over every scene
+
+What the engine loads into every scene, and how to keep it out of a
+look-dev capture. Prefer a switch the overlays honour over editing the
+shipping configuration; check the frame afterwards, as the skill says.
+
+| Engine | What draws over every scene | Capture override |
+|---|---|---|
+| Godot 4 | autoloads (`[autoload]` in `project.godot`) that add UI, fade or debug layers | a user argument after `--` (`godot ... <scene> -- --lookdev`), read with `OS.get_cmdline_user_args()`, that each overlay autoload checks to hide or free itself; or a capture override file that removes the autoload entries (check on the pinned version that the override really drops them) |
+| Unreal Engine | the GameMode's HUD class, widgets the GameInstance or a subsystem adds, on-screen debug messages and stats | a look-dev map with a GameMode override that has no HUD class; `-ExecCmds="DisableAllScreenMessages, stat none"` |
+| Unity | bootstrap objects from `RuntimeInitializeOnLoadMethod` or `DontDestroyOnLoad` (UI canvases, fade screens, debug consoles) | a command-line switch read with `System.Environment.GetCommandLineArgs()` that the bootstrap checks; or an editor method that renders only the look-dev scene's camera into a `RenderTexture` |
+
 ## Derived images
 
 | Need | Pillow | ImageMagick |

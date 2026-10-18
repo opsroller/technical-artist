@@ -21,20 +21,27 @@ for you.
        res://lookdev/LD_Neutral.tscn
    ```
 
-3. **Capture "before" from the base commit.** Check out the default branch
+3. **Keep global overlays out.** If the project loads UI, a fade layer
+   or a debug overlay into every scene (autoloads, global singletons),
+   capture with the override the project documents: a capture flag the
+   overlays honour, or a capture configuration without them. If there is
+   none, add a flag with the overlays' owner and document it. The skill's
+   [engine recipes](../../skills/lookdev-capture/engine-recipes.md) list
+   the usual switch per engine.
+4. **Capture "before" from the base commit.** Check out the default branch
    in a separate worktree and run the same command there, before you
    change anything.
-4. **Check every frame.** Its size is the one you asked for, it is not
-   black or blank, and it is the settled frame (the same frame number each
+5. **Check every frame.** Its size is the one you asked for, it is not
+   black or blank, it shows no overlay the scene does not contain, and it is the settled frame (the same frame number each
    time). If the size is wrong, set the engine's window size override and
    capture again.
-5. **Make your change and capture "after"** with the identical command,
+6. **Make your change and capture "after"** with the identical command,
    size, frame and driver.
-6. **Make the comparison images** with a script: a greyscale copy of each
+7. **Make the comparison images** with a script: a greyscale copy of each
    frame, and before | after side by side.
-7. **Judge** each pair against the brief and the readability criteria,
+8. **Judge** each pair against the brief and the readability criteria,
    in colour and in greyscale. Name each problem with its frame.
-8. **Store the frames** where the project says: small compressed images
+9. **Store the frames** where the project says: small compressed images
    next to the docs page that shows them, full-size frames as CI
    artifacts.
 
