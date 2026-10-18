@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 export const meta = {
   name: 'author-shader',
-  description: 'Author or rework one shader (and the materials that use it) from an effect brief: write the effect down with its coverage, platforms, tiers, fallbacks, permutations and cost budget, capture look-dev frames before, build it on the project\'s shared material conventions, capture after, attack it in parallel independent read-only reviews (look, cost and permutations, platforms and fallbacks, artist parameters), fix, document it and push it as a handoff for engineering-practices deliver-package or land-pr. Builds on the materials-shaders and lookdev-capture skills. args: { shader: "<shader name>", brief: "<what it must look like and where it is used>", replaces?: "<existing shader or material, optional>", wp?: "<work package id>", branch?: "<existing branch>", pr?: "<existing PR>" }',
+  description: 'Author or rework one shader (and the materials that use it) from an effect brief: write the effect down with its coverage, platforms, tiers, fallbacks, permutations and cost budget, capture look-dev frames before, build it on the project\'s shared material conventions, capture after, attack it in parallel independent read-only reviews (look, cost and permutations, platforms and fallbacks, artist parameters), fix, document it and push it as a handoff for engineering-practices deliver-package or land-pr. Targets only provable in CI (a platform-only toolchain, e.g. Metal from a Linux host) finish as pending_ci with the CI job named; re-run with ci_pending after CI to confirm or fix them. Builds on the materials-shaders and lookdev-capture skills. args: { shader: "<shader name>", brief: "<what it must look like and where it is used>", replaces?: "<existing shader or material, optional>", wp?: "<work package id>", branch?: "<existing branch>", pr?: "<existing PR>", ci_pending?: ["<target>: <CI job>", ...] }',
   phases: [
     { title: 'Plan', detail: 'effect, coverage, platforms and tiers, fallbacks, permutations, parameters, cost budget, look-dev frames, doc kinds' },
     { title: 'Before', detail: 'capture the look-dev frames on the current state (lookdev-capture skill)' },
-    { title: 'Build', detail: 'shader, material instances, tier variants and fallbacks; compiles on every renderer; cost measured' },
+    { title: 'Build', detail: 'shader, material instances, tier variants and fallbacks; compiles on every renderer it can reach, CI-only targets recorded as pending CI; cost measured' },
     { title: 'After', detail: 'capture the same frames with the new shader' },
     { title: 'Review', detail: 'parallel independent read-only reviews: look, cost and permutations, platforms and fallbacks, artist parameters' },
     { title: 'Fix', detail: 'one agent fixes what the reviews found and re-captures; only failures block, notes never do' },
     { title: 'Docs', detail: 'write or update the planned Diataxis pages, then an independent check of one kind per page' },
     { title: 'Handoff', detail: 'commit, push, open or reuse a draft PR, return a handoff for deliver-package or land-pr' },
+    { title: 'CI', detail: 'resume only (ci_pending): read the named CI jobs on the PR head; confirm each pending target or fix it from the CI log' },
   ],
 }
 
@@ -106,10 +107,12 @@ if (RUN.error) return RUN.error
 const RUN_OUT = await Promise.race([RUN.halted, (async (agent, phase, log) => {
 // --- run-modes v2 end (workflow body follows; close it with the tail line) ---
 
-const USAGE = 'usage: author-shader { shader: "<shader name, e.g. SH_Water>", brief: "<what it must look like, where it is used, what it must communicate>", replaces: "<existing shader or material, optional>", wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>" }'
-if (!args || !args.shader || !args.brief) return USAGE
+const USAGE = 'usage: author-shader { shader: "<shader name, e.g. SH_Water>", brief: "<what it must look like, where it is used, what it must communicate>", replaces: "<existing shader or material, optional>", wp: "<work package id, optional>", branch: "<existing branch, optional>", pr: "<existing PR, optional>", ci_pending: ["<target>: <CI job>", ...] (resume after CI, with pr or branch; brief optional) }'
+const ciPending = Array.isArray(args && args.ci_pending) ? args.ci_pending.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim()) : []
+if (!args || !args.shader || (!args.brief && !ciPending.length)) return USAGE
+if (ciPending.length && !args.pr && !args.branch) return USAGE + ' (ci_pending needs pr or branch)'
 const shader = String(args.shader)
-const brief = String(args.brief)
+const brief = args.brief ? String(args.brief) : ''
 const replaces = args.replaces ? String(args.replaces) : ''
 const wp = args.wp ? String(args.wp) : ''
 const where = args.pr
@@ -135,6 +138,7 @@ const PLAN = {
     coverage: { type: 'string', description: 'where it is used and how much of the screen it covers at most; opaque, alpha-tested or blended' },
     standard: { type: 'string', description: 'why the project\'s standard material cannot do this, or "extends <shared shader or include>"' },
     targets: { type: 'array', items: { type: 'string' }, description: 'each renderer or backend and platform it must run on' },
+    ci_only: { type: 'array', items: { type: 'string' }, description: 'each "<target>: <CI job that compiles it> (why it cannot compile here)" for a target only CI can prove, e.g. a platform-only toolchain; empty if every target compiles locally' },
     tiers: { type: 'array', items: { type: 'string' }, description: 'each "tier: technique and quality for this tier" from the visual target, lowest first; empty if the project has no tiers' },
     fallbacks: { type: 'array', items: { type: 'string' }, description: 'each "where: what renders instead" for a tier or renderer without the full effect' },
     permutations: { type: 'string', description: 'static switches and how many compiled variants they make' },
@@ -148,6 +152,7 @@ const PLAN = {
         frames: { type: 'array', items: { type: 'string' }, description: 'each "scene / camera / renderer or tier"' },
         command: { type: 'string' },
         outDir: { type: 'string' },
+        overlays: { type: 'string', description: 'what the project draws over every scene (autoloads or global singletons with UI, fades, debug HUDs) and how the capture turns it off (a capture flag the overlays honour, a capture config without them), or "none"' },
         why: { type: 'string' },
       },
       required: ['possible'],
@@ -159,21 +164,55 @@ const PLAN = {
   },
   required: ['effect', 'coverage', 'standard', 'targets', 'tiers', 'fallbacks', 'permutations', 'parameters', 'budget', 'files', 'lookdev', 'ambiguous', 'docKinds'],
 }
-const FRAMES = { type: 'object', properties: { frames: { type: 'array', items: { type: 'string' }, description: 'each "<file> : scene / camera / renderer or tier, size WxH, driver"' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['frames'] }
-const BUILD = { type: 'object', properties: { compiles: { type: 'array', items: { type: 'string' }, description: 'each "<renderer or platform>: ok | error"' }, measured: { type: 'string', description: 'cost on the lowest tier that uses it, with device or stand-in, or "estimate: ..."' }, variants: { type: 'string', description: 'compiled variant count' }, files: { type: 'array', items: { type: 'string' } }, branch: { type: 'string' }, non_original: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' } }, required: ['compiles', 'measured', 'files', 'branch'] }
+const FRAMES = { type: 'object', properties: { frames: { type: 'array', items: { type: 'string' }, description: 'each "<file> : scene / camera / renderer or tier, size WxH, driver"' }, contaminated: { type: 'array', items: { type: 'string' }, description: 'each "<file>: what drew over the scene" for a frame that still shows an overlay after the override; these are left out of frames' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['frames'] }
+const BUILD = { type: 'object', properties: { compiles: { type: 'array', items: { type: 'string' }, description: 'each "<renderer or platform>: ok | error <message> | pending-ci <CI job that compiles it>"' }, measured: { type: 'string', description: 'cost on the lowest tier that uses it, with device or stand-in, or "estimate: ..."' }, variants: { type: 'string', description: 'compiled variant count' }, files: { type: 'array', items: { type: 'string' } }, branch: { type: 'string' }, non_original: { type: 'array', items: { type: 'string' } }, notes: { type: 'string' } }, required: ['compiles', 'measured', 'files', 'branch'] }
 const REVIEW = { type: 'object', properties: { problems: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['problems'] }
 const FIX = { type: 'object', properties: { fixed: { type: 'array', items: { type: 'string' } }, failing: { type: 'array', items: { type: 'string' } }, frames: { type: 'array', items: { type: 'string' } }, notes: { type: 'array', items: { type: 'string' } } }, required: ['fixed', 'failing'] }
 const DOCS = { type: 'object', properties: { pages: { type: 'array', items: { type: 'string' } }, undocumented: { type: 'array', items: { type: 'string' } } }, required: ['pages', 'undocumented'] }
 const DOCCHECK = { type: 'object', properties: { ok: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } } }, required: ['ok'] }
 const HANDOFF = { type: 'object', properties: { branch: { type: 'string' }, pr: { type: 'string' }, head_sha: { type: 'string' }, tests_pass: { type: 'boolean' }, problem: { type: 'string' } }, required: ['branch', 'tests_pass'] }
 
+// A target that only CI can compile (a platform-only toolchain or driver)
+// is "pending CI", never "ok": the run finishes with it listed, and this
+// resume path turns it into pass or fail from the CI result.
+const PENDING_RE = /:\s*pending[- ]ci\b\s*(.*)$/i
+const CICHECK = { type: 'object', properties: { targets: { type: 'array', items: { type: 'object', properties: { target: { type: 'string' }, job: { type: 'string' }, result: { type: 'string', enum: ['pass', 'fail', 'not-run'] }, run: { type: 'string', description: 'CI run or job URL on the current head' }, log: { type: 'string', description: 'for fail: the compiler error lines from the log' } }, required: ['target', 'result'] } }, head_sha: { type: 'string' } }, required: ['targets'] }
+const CIFIX = { type: 'object', properties: { fixed: { type: 'array', items: { type: 'string' } }, failing: { type: 'array', items: { type: 'string' } }, head_sha: { type: 'string' }, notes: { type: 'array', items: { type: 'string' } } }, required: ['fixed', 'failing'] }
+if (ciPending.length) {
+  phase('CI')
+  const ci = await agent(
+    `You are the technical-artist confirming the shader "${shader}" on targets only CI can compile. ${where} For each pending target below, find the named CI job's latest run on the current head of the branch (the forge's API or CLI; wait for no run, read what is there), and report pass, fail (with the compiler error lines from its log) or not-run (no finished run on this head), with the run URL. A job that passed without compiling this shader for the target (skipped, cached, wrong platform) is not-run. Pending targets:\n- ${ciPending.join('\n- ')}\nDo not edit, commit or push anything.`,
+    { schema: CICHECK, phase: 'CI', label: 'ci:read' })
+  if (!ci || !Array.isArray(ci.targets)) return { status: 'blocked', stage: 'ci', open: ['could not read the CI results for: ' + ciPending.join('; ')] }
+  const by = (r) => ci.targets.filter((t) => t && t.result === r)
+  const passed = by('pass').map((t) => `${t.target}: pass ${t.run || ''}`.trim())
+  const failed = by('fail')
+  const listed = new Set(ci.targets.map((t) => t && t.target))
+  const notRun = by('not-run').map((t) => `${t.target}: pending-ci ${t.job || ''}`.trim())
+    .concat(ciPending.filter((p) => !listed.has(p.split(':')[0].trim())))
+  if (failed.length) {
+    const cifix = await agent(
+      `Fix the shader "${shader}" for the targets that failed in CI, in the shader and material files only, following the technical-artist materials-shaders skill. ${where}\n` +
+      failed.map((t) => `- ${t.target} (${t.job || 'CI job'}, ${t.run || 'run'}):\n${t.log || '(no log excerpt)'}`).join('\n') +
+      '\nKeep every target that already compiles compiling (recompile the ones you can reach locally), run the project validator and tests, commit with Conventional Commits and push. Return what you fixed, anything you could not fix, the new head SHA and notes.',
+      { schema: CIFIX, phase: 'CI', label: 'ci:fix' })
+    if (!cifix) return { status: 'blocked', stage: 'ci', open: failed.map((t) => `${t.target}: fails in CI ${t.run || ''}`.trim()), confirmed: passed }
+    if (strings(cifix.failing).length) return { status: 'blocked', stage: 'ci', open: strings(cifix.failing), confirmed: passed, notes: strings(cifix.notes) }
+    // The fix is a new head, so every target CI proves must run again on it.
+    const again = failed.map((t) => `${t.target}: pending-ci ${t.job || ''}`.trim()).concat(notRun)
+    return { status: 'pending_ci', shader, pending_ci: again, confirmed: passed, fixed: strings(cifix.fixed), head_sha: cifix.head_sha || '', notes: strings(cifix.notes), next: `after CI finishes on the new head: /technical-artist:author-shader ${JSON.stringify({ shader, pr: args.pr || undefined, branch: args.pr ? undefined : args.branch, ci_pending: again })}` }
+  }
+  if (notRun.length) return { status: 'pending_ci', shader, pending_ci: notRun, confirmed: passed, head_sha: ci.head_sha || '', next: `after CI finishes on the head: /technical-artist:author-shader ${JSON.stringify({ shader, pr: args.pr || undefined, branch: args.pr ? undefined : args.branch, ci_pending: notRun })}` }
+  return { status: 'done', shader, confirmed: passed, head_sha: ci.head_sha || '', next: `land it: /engineering-practices:land-pr ${args.pr ? `{ pr: "${args.pr}" }` : `{ branch: "${args.branch}" }`}` }
+}
+
 phase('Plan')
 const plan = await agent(
   `You are the technical-artist authoring the shader "${shader}". Onboard first (engineering-practices project-onboarding), then follow the technical-artist skills materials-shaders (Shader method), art-budgets-profiling and lookdev-capture. Brief: ${brief}\n` +
   (replaces ? `It replaces or reworks: ${replaces}. Read it first and keep what it gets right.\n` : '') +
   'Write the effect down before any code: what it must look like, where it is used and how much screen it covers, opaque or blended. Start from the project\'s shared material or shader includes; a new shader needs a stated reason the standard one cannot do the effect. ' +
-  'Read the project\'s quality tiers and renderer decision (visual target; the renderer and features per tier are the graphics-programmer\'s decision, so take them as given and put any missing decision in blockers), list the renderers and platforms it must run on, the technique per tier and a fallback for every tier or renderer without the full effect. ' +
-  'Plan static switches with their compiled variant count, the artist parameters with ranges and defaults, and a cost budget on the lowest tier that uses it with how it is measured. Plan the look-dev frames (lookdev-capture skill) or set possible to false with the reason. ' +
+  'Read the project\'s quality tiers and renderer decision (visual target; the renderer and features per tier are the graphics-programmer\'s decision, so take them as given and put any missing decision in blockers), list the renderers and platforms it must run on (and in ci_only each one this machine cannot compile for, such as a platform-only toolchain, with the CI job that does), the technique per tier and a fallback for every tier or renderer without the full effect. ' +
+  'Plan static switches with their compiled variant count, the artist parameters with ranges and defaults, and a cost budget on the lowest tier that uses it with how it is measured. Plan the look-dev frames (lookdev-capture skill) or set possible to false with the reason; find what the project draws over every scene (autoloads, global singletons, persistent UI or debug overlays) and plan how the capture turns it off, as the skill\'s "Isolate the scene" step says. ' +
   'State each gap as "AMBIGUOUS: <question> -> default <value>". Plan documentation with the Diataxis compass: a new shader owes reference (parameters, permutations, cost, platforms, fallbacks) and an explanation of design choices; a how-to when someone must do something new with it. List the files you will change. Do not edit files.',
   { schema: PLAN, phase: 'Plan', label: 'plan' })
 if (!plan) return 'blocked: planning failed (no plan returned) for ' + shader
@@ -182,14 +221,16 @@ const ambiguous = strings(plan.ambiguous)
 const caveats = strings(plan.caveats)
 const look = plan.lookdev || { possible: false }
 if (!look.possible) notes.push('look-dev frames not captured: ' + (look.why || 'the plan found no way to render headless'))
-const spec = `Effect: ${plan.effect}\nCoverage: ${plan.coverage}\nBase: ${plan.standard}\nTargets: ${strings(plan.targets).join(', ')}\nTiers: ${strings(plan.tiers).join('; ') || 'none'}\nFallbacks: ${strings(plan.fallbacks).join('; ') || 'none'}\nPermutations: ${plan.permutations}\nParameters: ${strings(plan.parameters).join('; ')}\nBudget: ${plan.budget}`
-const captureBrief = (tag) => `Capture the look-dev frames ${tag === 'before' ? 'before the change' : 'with the new shader'}, following the technical-artist lookdev-capture skill exactly: ${JSON.stringify(look.frames || [])} with ${look.command || 'the project\'s headless render command'}, into ${look.outDir || 'a frames directory the project profile names'}. Name each file <scene>-<camera>-<renderer or tier>-${tag}. ${tag === 'before' ? 'Render from the base commit (a separate worktree of the base branch) so the frames show the state before this work, even if the working branch already has changes. ' : 'Render from the working tree with the same command, size, frame and driver as the before frames. '} Check every frame is the requested size and is not black, blank or captured before the scene settled; re-capture any that fail. Write a greyscale copy of each. Change no project files except the frames. Return the frame files with what each shows and the driver that rendered it, and anything you could not capture in problems.`
+const ciOnly = strings(plan.ci_only)
+const spec = `Effect: ${plan.effect}\nCoverage: ${plan.coverage}\nBase: ${plan.standard}\nTargets: ${strings(plan.targets).join(', ')}\nCI-only targets: ${ciOnly.join('; ') || 'none'}\nTiers: ${strings(plan.tiers).join('; ') || 'none'}\nFallbacks: ${strings(plan.fallbacks).join('; ') || 'none'}\nPermutations: ${plan.permutations}\nParameters: ${strings(plan.parameters).join('; ')}\nBudget: ${plan.budget}`
+const captureBrief = (tag) => `Capture the look-dev frames ${tag === 'before' ? 'before the change' : 'with the new shader'}, following the technical-artist lookdev-capture skill exactly: ${JSON.stringify(look.frames || [])} with ${look.command || 'the project\'s headless render command'}, into ${look.outDir || 'a frames directory the project profile names'}. Name each file <scene>-<camera>-<renderer or tier>-${tag}. Isolate the scene from what the project draws over every scene (${look.overlays || 'find it: autoloads, global singletons, persistent UI'}) with the planned override, and check each frame shows only the scene: no HUD, text, fade or debug layer the scene does not contain (render the scene once with the override off if you need to see what the overlays draw). Re-capture a contaminated frame; one that still shows an overlay goes in contaminated, not frames. ${tag === 'before' ? 'Render from the base commit (a separate worktree of the base branch) so the frames show the state before this work, even if the working branch already has changes. ' : 'Render from the working tree with the same command, size, frame and driver as the before frames. '} Check every frame is the requested size and is not black, blank or captured before the scene settled; re-capture any that fail. Write a greyscale copy of each. Change no project files except the frames. Return the frame files with what each shows and the driver that rendered it, and anything you could not capture in problems.`
 log(`${strings(plan.targets).length} targets, ${strings(plan.tiers).length} tiers, ${strings(plan.parameters).length} parameters, ${ambiguous.length} ambiguous`)
 
 let before = null
 if (look.possible) {
   phase('Before')
   before = await agent(captureBrief('before'), { schema: FRAMES, phase: 'Before', label: 'capture:before' })
+  if (before && strings(before.contaminated).length) notes.push('before frames still showing overlays, left out: ' + strings(before.contaminated).join('; '))
   if (!before || !strings(before.frames).length) notes.push('before frames missing: ' + (before ? strings(before.problems).join('; ') : 'capture step returned nothing'))
 }
 
@@ -198,11 +239,14 @@ const build = await agent(
   `Build the shader "${shader}" following the technical-artist materials-shaders skill (Shader method and Material method) and the project profile. ${where}\n${spec}\n` +
   `Write files only in: ${strings(plan.files).join(', ')}. Use the project's shared includes and conventions (colour spaces, packing, normal convention) and expose only the planned parameters with their ranges. Give every tier its technique and every planned fallback. Update the material instances that use it and the look-dev scene if it needs one. ` +
   (ambiguous.length ? 'Implement each stated default as a named value and keep this list:\n- ' + ambiguous.join('\n- ') + '\n' : '') +
-  'Compile or load it on every target renderer (headless where the engine allows) and report each result. Measure the cost on the lowest tier that uses it against the budget (instruction and sample counts from the compiler, or a timed capture at its coverage); if no target device is reachable, give a sourced estimate and label it "estimate". Count compiled variants. Run the project validator and tests. ' +
+  'Compile or load it on every target renderer (headless where the engine allows) and report each result as "<target>: ok" or "<target>: error <message>". A target this machine cannot compile for at all (no toolchain or driver for that platform, e.g. a platform-only shader compiler), and that a named CI job does compile, is "<target>: pending-ci <CI job>": make sure that job builds this shader for that target (say so in notes if it does not and you could not add it), and never report such a target as ok. A target with no CI job to prove it is an error. ' +
+  (ciOnly.length ? 'Planned CI-only targets: ' + ciOnly.join('; ') + '. ' : '') +
+  'Measure the cost on the lowest tier that uses it against the budget (instruction and sample counts from the compiler, or a timed capture at its coverage); if no target device is reachable, give a sourced estimate and label it "estimate". Count compiled variants. Run the project validator and tests. ' +
   'Log every non-original item (code, noise textures, LUTs) per the asset-provenance skill. Commit with Conventional Commits. Return compile results per target, the measured or estimated cost, the variant count, the files, the branch and the non-original items (empty if none).',
   { schema: BUILD, phase: 'Build', label: 'build' })
 if (!build) return { status: 'blocked', stage: 'build', open: ['build step returned nothing'] }
-const compileErrors = strings(build.compiles).filter((c) => !/:\s*ok\b/i.test(c))
+const pendingCi = strings(build.compiles).filter((c) => PENDING_RE.test(c) && PENDING_RE.exec(c)[1].trim())
+const compileErrors = strings(build.compiles).filter((c) => !/:\s*ok\b/i.test(c) && !pendingCi.includes(c))
 if (compileErrors.length) return { status: 'blocked', stage: 'build', open: compileErrors.map((c) => 'does not compile or load: ' + c), notes }
 if (build.notes) notes.push('build: ' + build.notes)
 
@@ -210,6 +254,7 @@ let after = null
 if (look.possible) {
   phase('After')
   after = await agent(captureBrief('after'), { schema: FRAMES, phase: 'After', label: 'capture:after' })
+  if (after && strings(after.contaminated).length) notes.push('after frames still showing overlays, left out: ' + strings(after.contaminated).join('; '))
   if (!after || !strings(after.frames).length) notes.push('after frames missing: ' + (after ? strings(after.problems).join('; ') : 'capture step returned nothing'))
 }
 const afterFrames = after ? strings(after.frames) : []
@@ -218,7 +263,7 @@ phase('Review')
 const lenses = [
   { key: 'look', text: `look: open every before and after frame and its greyscale copy (lookdev-capture skill, "Judge"). Before: ${JSON.stringify(before ? before.frames : [])}. After: ${JSON.stringify(afterFrames)}. Does it look like the effect written down, read from the gameplay camera, keep gameplay objects apart by value, silhouette and colour on every tier captured, and add to the base look rather than change what reads? A software-rendered frame judges values and readability, not GPU-only features. If there are no after frames, say so in problems.` },
   { key: 'cost', text: `cost and permutations: budget ${plan.budget}; measured ${build.measured}; ${build.variants || 'unknown'} compiled variants (planned: ${plan.permutations}). Read the shader for pixel work that could move to vertex or a texture, redundant samples, blending over large areas, and switches that multiply variants (materials-shaders, art-budgets-profiling). A measured cost over budget is a problem; a labelled estimate is a note.` },
-  { key: 'platforms', text: `platforms and fallbacks: targets ${strings(plan.targets).join(', ')}; tiers ${strings(plan.tiers).join('; ') || 'none'}; fallbacks ${strings(plan.fallbacks).join('; ') || 'none'}; compile results ${strings(build.compiles).join('; ')}. Every target compiles, every tier gets its technique, every lower tier or renderer without the full effect gets its fallback, and nothing renders black, pink or untextured; precision and features the weakest target lacks are not used unguarded.` },
+  { key: 'platforms', text: `platforms and fallbacks: targets ${strings(plan.targets).join(', ')}; tiers ${strings(plan.tiers).join('; ') || 'none'}; fallbacks ${strings(plan.fallbacks).join('; ') || 'none'}; compile results ${strings(build.compiles).join('; ')}. A "pending-ci" target is proven later by its CI job: check that job exists and builds this target, and read the shader for what that target is known to reject (feature, precision, sampler or resource limits); do not count pending as a failure. Every reachable target compiles, every tier gets its technique, every lower tier or renderer without the full effect gets its fallback, and nothing renders black, pink or untextured; precision and features the weakest target lacks are not used unguarded.` },
   { key: 'params', text: `artist parameters and materials: planned ${strings(plan.parameters).join('; ')}. Each parameter has a clear name, range and default; moving it across its whole range never breaks the look (no NaN, blown highlights, negative values); hidden values stay hidden; material instances that use it follow the project\'s colour-space and packing conventions (materials-shaders, pbr-reference.md).` },
 ]
 const reviews = await parallel(lenses.map((l) => () => agent(
@@ -271,7 +316,7 @@ else if (!docCheck.ok) return { status: 'blocked', stage: 'docs', open: (docChec
 
 phase('Handoff')
 const handoff = await agent(
-  `Hand off the shader "${shader}". ${where} Make sure every commit is pushed to the branch (${build.branch}); if no pull request is open for it, open a draft PR titled as a Conventional Commit${wp ? ` with "Refs: ${wp}" in the body` : ''}, with the effect, the cost against budget, the variant count, the technique and fallback per tier, the docs pages by Diataxis kind${frames.length ? ', the before and after frames' : ''}${ambiguous.length ? ', the defaults taken for ambiguous points' : ''}${caveats.length ? ', and a "Known risks" section: ' + caveats.join('; ') : ''}. ` +
+  `Hand off the shader "${shader}". ${where} Make sure every commit is pushed to the branch (${build.branch}); if no pull request is open for it, open a draft PR titled as a Conventional Commit${wp ? ` with "Refs: ${wp}" in the body` : ''}, with the effect, the cost against budget, the variant count, the technique and fallback per tier, the docs pages by Diataxis kind${pendingCi.length ? ', a "Pending CI" section listing ' + pendingCi.join('; ') + ' and saying these targets are confirmed only when those CI jobs pass on the head, before merge' : ''}${frames.length ? ', the before and after frames' : ''}${ambiguous.length ? ', the defaults taken for ambiguous points' : ''}${caveats.length ? ', and a "Known risks" section: ' + caveats.join('; ') : ''}. ` +
   'Do not mark it ready, request review or merge: the engineering-practices workflow named in the result does that. Follow the engineering-practices git-workflow skill. Run the project\'s tests and asset validator on the pushed head. Return the branch, PR URL, head commit SHA, and whether they pass on that head.',
   { schema: HANDOFF, phase: 'Handoff', label: 'handoff' })
 if (!handoff || !handoff.branch) return { status: 'blocked', stage: 'handoff', open: ['hand-off failed; the work is committed on ' + build.branch + ' but may not be pushed'], notes }
@@ -281,8 +326,9 @@ if (!handoff.tests_pass) return { status: 'blocked', stage: 'handoff', open: ['t
 // and the reviewer will read it.
 unverified.forEach((k) => notes.push(`unverified: review:${k} returned nothing`))
 return {
-  status: unverified.length || !docCheck ? 'unverified' : 'done',
+  status: unverified.length || !docCheck ? 'unverified' : pendingCi.length ? 'pending_ci' : 'done',
   shader,
+  pending_ci: pendingCi,
   measured: build.measured,
   variants: build.variants || '',
   ambiguous,
@@ -303,9 +349,11 @@ return {
     docs: docs.pages || [],
     undocumented: docs.undocumented || [],
     non_original: strings(build.non_original),
-    notes: caveats.concat(notes),
+    notes: caveats.concat(pendingCi.length ? ['pending CI, confirm before merge: ' + pendingCi.join('; ')] : [], notes),
   },
-  next: wp
+  next: pendingCi.length
+    ? `after CI finishes on the head, confirm the pending targets: /technical-artist:author-shader ${JSON.stringify({ shader, pr: handoff.pr || undefined, branch: handoff.pr ? undefined : handoff.branch, ci_pending: pendingCi })}; once that returns done, ` + (wp ? `/engineering-practices:deliver-package { wp: "${wp}", prior: <this result> }` : `/engineering-practices:land-pr ${handoff.pr ? `{ pr: "${handoff.pr}" }` : `{ branch: "${handoff.branch}" }`}`)
+    : wp
     ? `ship it without rebuilding: /engineering-practices:deliver-package { wp: "${wp}", prior: <this result> }; after the code reviewer passes, /engineering-practices:land-pr { pr: "<the PR>" }`
     : `land it (it marks the PR ready, asks the code reviewer, polls CI and squash-merges once passed): /engineering-practices:land-pr ${handoff.pr ? `{ pr: "${handoff.pr}" }` : `{ branch: "${handoff.branch}" }`}`,
 }

@@ -29,11 +29,35 @@ with the `author-shader` workflow.
    - `status: "done"`: the shader, materials, docs and frames are on a
      pushed branch with a draft PR; `measured` and `variants` give its
      cost.
+   - `status: "pending_ci"`: done, except the targets in `pending_ci`,
+     which this machine cannot compile for (for example Metal from a
+     Linux host) and which a named CI job proves. Wait for CI on the PR,
+     then run the command in `next` (see below).
    - `status: "unverified"`: a review returned nothing
      (`unverifiedReviews`); run that review again with
      `run: { only: ["review:<name>"] }`.
    - `status: "blocked"`: read `stage` and `open`, fix, run again.
 6. **Ship it** with the command in `next`.
+
+## Confirm targets only CI can compile
+
+When the result is `pending_ci`, CI must prove those targets before the
+PR merges. Once the CI jobs named in `pending_ci` have finished on the
+PR head, run the workflow again with that list:
+
+```
+author-shader  args: {
+  shader: "SH_Water",
+  pr: "#42",
+  ci_pending: ["metal: pending-ci macos-build"]
+}
+```
+
+It reads each job's latest run. All passed: `status: "done"` and `next`
+lands the PR. A target failed: it fixes the shader from the CI log, pushes,
+and returns `pending_ci` again, because the new head needs a new CI run.
+A job that has not run on the head yet: `pending_ci` again; run it once
+CI finishes.
 
 ## Related
 
